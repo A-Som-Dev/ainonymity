@@ -2,6 +2,22 @@
 
 All notable changes to AInonymous are documented here. The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/).
 
+## [1.1.3] - 2026-04-16
+
+Security and backward-compat patch.
+
+### Security
+- `AINONYMOUS_MGMT_TOKEN` in environment is now length-checked. The proxy refuses to start when the env token is shorter than 16 characters, matching the policy already enforced on `behavior.mgmt_token` in config. Previously the env value bypassed the length check and a single-character token was accepted, leaving management endpoints brute-forceable on a non-local bind.
+
+### Changed (backward-compat)
+- `loadConfig` logs a warning when `.ainonymity.yml` (legacy filename) is present but `.ainonymous.yml` is missing. The legacy file is not loaded; behaviour matches the previous "no config found" path but the warning makes the silent default obvious after upgrading.
+- `// @ainonymity:redact` annotations in source code are now honored with a deprecation warning in addition to the new `// @ainonymous:redact`. Without this, existing user codebases would have silently lost body-redaction after the rebrand.
+- `.gitignore` extended with the legacy `ainonymity-audit/`, `ainonymity-session.db*` paths so upgraded checkouts don't accidentally commit pre-1.1.0 on-disk artefacts.
+
+### Tests
+- New assertion in the upstream error-body integration test: verifies that identity values (`Artur Sommer`, `Acme Corp`) and secrets (`hunter2secretpass`) never reach the upstream request body, not just that the client-side `***REDACTED***` marker is preserved.
+- `examples/before-after/output.md` no longer claims `Partner` as pseudonymized (the demo input never contains it).
+
 ## [1.1.2] - 2026-04-16
 
 Documentation-only patch. No runtime changes. Fixes version-staleness across docs after the v1.1.x rebrand series.

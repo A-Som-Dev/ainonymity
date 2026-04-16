@@ -151,17 +151,28 @@ describe('E2E proxy flow', () => {
     expect(auditDump).not.toContain('sk-ant-keep-me-intact');
   }, 15000);
 
-  it('returns REDACTED to client when upstream echoes it in an error body', async () => {
+  it('returns REDACTED to client when upstream echoes it in an error body, without leaking identity upstream', async () => {
     // Upstream returns 500 with a body that itself contains ***REDACTED*** markers.
-    // Verify the proxy does not un-redact them and does not leak original values.
-    upstream = http.createServer((_req, res) => {
-      res.writeHead(500, { 'content-type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: 'bad request',
-          debug: 'upstream saw: password=***REDACTED*** sent by unknown client',
-        }),
-      );
+    // Verify:
+    //   1. the proxy does not un-redact the secret marker
+    //   2. no original identity (Artur Sommer, Acme Corp) reached the upstream
+    //   3. no original secret (hunter2secretpass) reached the upstream
+    let capturedUpstreamBody = '';
+    upstream = http.createServer((req, res) => {
+      let data = '';
+      req.on('data', (chunk) => {
+        data += chunk;
+      });
+      req.on('end', () => {
+        capturedUpstreamBody = data;
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: 'bad request',
+            debug: 'upstream saw: password=***REDACTED*** sent by unknown client',
+          }),
+        );
+      });
     });
     await new Promise<void>((r) => upstream!.listen(0, '127.0.0.1', r));
     const upPort = (upstream!.address() as { port: number }).port;
@@ -192,7 +203,13 @@ describe('E2E proxy flow', () => {
     });
 
     const body = await res.text();
+    // client-facing behaviour
     expect(body).toContain('***REDACTED***');
     expect(body).not.toContain('hunter2secretpass');
+
+    // upstream-facing anonymization — the actual identity protection contract
+    expect(capturedUpstreamBody).not.toContain('Artur Sommer');
+    expect(capturedUpstreamBody).not.toContain('Acme Corp');
+    expect(capturedUpstreamBody).not.toContain('hunter2secretpass');
   }, 15000);
 });

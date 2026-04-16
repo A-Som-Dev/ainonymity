@@ -71,6 +71,13 @@ describe('CodeLayer', () => {
     expect(result.text).not.toContain('return 42');
   });
 
+  it('honors legacy @ainonymity:redact annotation (backward compat, v1.0.x)', async () => {
+    const code = '// @ainonymity:redact\nfunction legacySecret() { return 42; }';
+    const result = await layer.processAsync(code, ctx);
+    expect(result.text).toContain('redacted');
+    expect(result.text).not.toContain('return 42');
+  });
+
   it('anonymizes all identifiers in sensitivePaths files', async () => {
     ctx.config.code.sensitivePaths = ['src/secrets/**'];
     ctx.filePath = 'src/secrets/keys.ts';

@@ -445,4 +445,22 @@ describe('management endpoint auth', () => {
     });
     expect(fromOpts.status).toBe(403);
   });
+
+  it('refuses to start when AINONYMOUS_MGMT_TOKEN is shorter than 16 chars', () => {
+    process.env['AINONYMOUS_MGMT_TOKEN'] = 'short-token';
+    const config = getDefaults();
+    expect(() => createProxyServer({ config })).toThrow(/at least 16 characters/);
+  });
+
+  it('accepts AINONYMOUS_MGMT_TOKEN exactly at the 16-char boundary', async () => {
+    process.env['AINONYMOUS_MGMT_TOKEN'] = 'sixteenCharToken';
+    const config = getDefaults();
+    server = createProxyServer({ config });
+    const port = await listenOnRandomPort(server);
+
+    const res = await fetch(`http://127.0.0.1:${port}/metrics`, {
+      headers: { authorization: 'Bearer sixteenCharToken' },
+    });
+    expect(res.status).toBe(200);
+  });
 });

@@ -566,12 +566,19 @@ export class CodeLayer implements Layer {
   private handleRedactAnnotations(text: string, out: Replacement[]): string {
     let result = text;
 
-    // find annotation + function, replace entire body
-    const linePattern = /\/\/\s*@ainonymous:redact\s*\n([^\n]*?\{)/g;
+    // find annotation + function, replace entire body. The legacy
+    // `@ainonymity:redact` spelling is still honored so that existing user
+    // codebases don't silently lose body-redaction after the rename.
+    const linePattern = /\/\/\s*@ainonym(ous|ity):redact\s*\n([^\n]*?\{)/g;
     let match: RegExpExecArray | null;
+    let legacyWarned = false;
     const edits: Array<{ start: number; end: number; replacement: string }> = [];
 
     while ((match = linePattern.exec(result)) !== null) {
+      if (match[1] === 'ity' && !legacyWarned) {
+        log.warn('legacy @ainonymity:redact annotation detected, rename to @ainonymous:redact');
+        legacyWarned = true;
+      }
       const bracePos = match.index + match[0].length - 1;
       const bodyEnd = findMatchingBrace(result, bracePos);
       if (bodyEnd === -1) continue;

@@ -45,7 +45,7 @@ The Eta is Theta Alpha, Iota him at user1@company-alpha.de.
 - `Artur Sommer` → pseudonym (configured person)
 - `artur.sommer@acme-corp.com` → detected via NER dictionary, pseudonymized
 - `hunter2topsecret!` → `***REDACTED***` (password pattern, permanent)
-- `Partner` → pseudonymized (domain term)
+- `Customer` → pseudonymized (domain term, triggered the compound rewrite of `CustomerBillingService`)
 - Spring framework identifiers (`@Service`, `CustomerRepository` type annotation) preserved where they appear
 
 Rehydration would reverse all pseudonyms when the response comes back through the proxy. The `***REDACTED***` marker stays forever — secrets are never restored.

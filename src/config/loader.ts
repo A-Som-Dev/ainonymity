@@ -14,6 +14,7 @@ import { validateRawConfig, hasErrors } from './validate.js';
 import { log } from '../logger.js';
 
 const CONFIG_FILENAME = '.ainonymous.yml';
+const LEGACY_CONFIG_FILENAME = '.ainonymity.yml';
 
 export function getDefaults(): AInonymousConfig {
   return structuredClone(DEFAULT_CONFIG);
@@ -24,6 +25,12 @@ export function loadConfig(projectDir: string): AInonymousConfig {
   const configPath = join(projectDir, CONFIG_FILENAME);
 
   if (!existsSync(configPath)) {
+    const legacyPath = join(projectDir, LEGACY_CONFIG_FILENAME);
+    if (existsSync(legacyPath)) {
+      log.warn('legacy config filename detected and ignored, rename to .ainonymous.yml', {
+        legacy: legacyPath,
+      });
+    }
     return autoDetect(projectDir);
   }
 

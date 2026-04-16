@@ -16,6 +16,23 @@ describe('config loader', () => {
     expect(cfg.identity.company).toBe('');
   });
 
+  it('falls back to auto-detect and still works if only legacy .ainonymity.yml exists', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'ain-legacy-cfg-'));
+    try {
+      writeFileSync(
+        join(tmp, '.ainonymity.yml'),
+        'version: 1\nidentity:\n  company: LegacyCorp\n',
+        'utf-8',
+      );
+      const cfg = loadConfig(tmp);
+      // Legacy file is deliberately NOT loaded — user gets defaults, not LegacyCorp.
+      expect(cfg.identity.company).not.toBe('LegacyCorp');
+      expect(cfg.version).toBe(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it('getDefaults returns clean defaults', () => {
     const cfg = getDefaults();
     expect(cfg.code.domainTerms).toEqual([]);

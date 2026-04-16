@@ -85,6 +85,13 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
   const shutdownToken = opts.shutdownToken ?? crypto.randomBytes(16).toString('hex');
 
   const envMgmt = process.env['AINONYMOUS_MGMT_TOKEN']?.trim();
+  if (envMgmt && envMgmt.length > 0 && envMgmt.length < 16) {
+    throw new Error(
+      'AINONYMOUS_MGMT_TOKEN must be at least 16 characters (got ' +
+        envMgmt.length +
+        '). Generate with: openssl rand -hex 24',
+    );
+  }
   const mgmtToken =
     envMgmt && envMgmt.length > 0 ? envMgmt : (opts.mgmtToken ?? opts.config.behavior.mgmtToken);
 

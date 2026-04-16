@@ -1,4 +1,4 @@
-export const VERSION = '1.1.2';
+export const VERSION = '1.1.3';
 
 export { Pipeline } from './pipeline/pipeline.js';
 export { BiMap } from './session/map.js';
