@@ -90,4 +90,4 @@ jobs:
             npm audit signatures
             ```
 
-            See [SECURITY.md](https://github.com/${{ github.repository }}/blob/main/SECURITY.md#verifying-release-artifacts) for the full verification guide.
+            See [SECURITY.md](https://github.com/${{ github.repository }}/blob/master/SECURITY.md#verifying-release-artifacts) for the full verification guide.

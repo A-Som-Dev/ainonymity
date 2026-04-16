@@ -100,7 +100,7 @@ Responses flow back through the pipeline in reverse, restoring all pseudonyms to
 
 | Tool | Runs where | Rehydrates responses | LLM-proxy mode | Code-aware |
 |------|-----------|----------------------|----------------|-----------|
-| **AInonymous** | Local (your machine) | Yes (bidirectional) | Native HTTP proxy | Tree-sitter for 8 languages |
+| **AInonymous** | Local (your machine) | Yes (bidirectional) | Native HTTP proxy | Tree-sitter for 9 languages |
 | [Microsoft Presidio](https://github.com/microsoft/presidio) | Library / API | No (one-way redaction) | No | No |
 | [Lakera Guard](https://www.lakera.ai/) | Remote SaaS | No | No (input-filter for Lakera-hosted) | No |
 | [PromptGuard-style filters](https://huggingface.co/meta-llama/Prompt-Guard-86M) | Local model | No | Input classifier | No |
@@ -244,7 +244,7 @@ console.log(result.replacements);  // what was changed
 AInonymous reduces the risk of leaking sensitive data but **does not guarantee complete anonymization**. Keep these limits in mind:
 
 - Regex-based detection has structural limits. Unusual formats, obfuscated data, or context-dependent PII may slip through.
-- AST-based code semantics currently supports TypeScript, JavaScript, Java, Python, PHP, and Kotlin. Other languages fall back to domain-term replacement.
+- AST-based code semantics currently supports TypeScript, JavaScript, Java, Kotlin, Python, PHP, Go, Rust, and C#. Other languages fall back to domain-term replacement.
 - Compliance presets (GDPR, HIPAA, etc.) provide detection patterns for common data types. **Using these presets does not make your organization compliant** with any regulation.
 - The tool is not a substitute for a professional security audit or legal review.
 - Streaming responses are rehydrated via a per-content-block sliding buffer that reassembles pseudonyms split across SSE event boundaries (e.g. `Alpha` | `Corp` | `Service`). The buffer sizes itself from the current session map's longest pseudonym, so the first visible text is delayed by roughly that many characters.
@@ -286,7 +286,7 @@ If you're evaluating AInonymous on behalf of a security / privacy / legal organi
 
 Telemetry: AInonymous does not send any data anywhere except the configured upstream LLM endpoint. There is no phone-home, no usage tracking, no error-reporting service. You can verify with `tcpdump` on `lo0`/`eth0` during a session - the only outbound connection is HTTPS to `api.anthropic.com` / `api.openai.com` (or the upstream you configured).
 
-Maintenance model: solo-maintained, MIT-licensed, responses best-effort (see SECURITY.md). For enterprise adoption consider pinning the exact version (`"ainonymous": "1.0.1"`, not `^`) and verifying Sigstore signatures on every upgrade. Commercial support is not part of this repository - see the "About" section at the bottom for contact.
+Maintenance model: solo-maintained, MIT-licensed, responses best-effort (see SECURITY.md). For enterprise adoption consider pinning the exact version (`"ainonymous": "1.1.2"`, not `^`) and verifying Sigstore signatures on every upgrade. Commercial support is not part of this repository - see the "About" section at the bottom for contact.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # AInonymous Threat Model
 
-Version: 1.0.0
+Version: 1.1.2
 Framework: STRIDE (primary), LINDDUN (appendix)
 Last updated: 2026-04-16
 
@@ -275,7 +275,7 @@ Documented in `SECURITY.md`. An SSE event boundary can land mid-pseudonym (`Alph
 
 ### R5 - Supply-chain integrity of published releases
 
-The package is built and published through GitHub Actions; releases are not signed. A compromised npm token could publish a trojaned `1.0.1` and downstream users running `npm install -g ainonymous@latest` would not detect it. SBOM is present but unsigned. P1-3 tracks Sigstore/Cosign integration. Mitigation today: pin to `1.0.0` in production, diff-review updates before upgrading.
+The package is built and published through GitHub Actions. Releases are signed via Sigstore (keyless, via GitHub OIDC) and npm publishes carry a provenance attestation (P1-3, closed). A compromised npm token could still publish a trojaned `ainonymous@latest`, but downstream users can detect it via `npm audit signatures` (rejects missing/invalid provenance) and cosign verification of the GitHub Release tarball. Mitigation today: pin to an exact version (e.g. `"ainonymous": "1.1.2"`, not `^`), run `npm audit signatures` before upgrading, diff-review the diff between tags for unexpected dependency additions.
 
 ---
 
@@ -315,7 +315,7 @@ AInonymous does not protect against:
 - **P2-4** ~~JSON-aware SSE delta reassembly.~~ Done via per-content-block sliding buffer in `src/proxy/stream-rehydrator.ts`. R4 resolved.
 - **P5-12** ~~Dashboard CSP without `'unsafe-inline'`.~~ Done: `dashboard/app.js` and `dashboard/app.css` are same-origin. See `SECURITY.md` → "Dashboard CSP".
 - **P5-14** ~~Windows ACL for the shutdown token file.~~ Done: stored under `%USERPROFILE%\.ainonymous\` with best-effort icacls hardening.
-- **v1.1 candidates** still open: Unicode confusables table (Cyrillic/Latin homoglyph bypass of keyword regexes); HMAC (keyed) instead of plain SHA-256 for the audit chain so an insider with write access cannot forge the tail; pseudonym-replay guard so a user replaying a pseudonym they saw in the dashboard cannot drive rehydration; per-regex timeout for user-supplied `secrets.patterns` to defuse ReDoS in hostile configs.
+- **v1.2 candidates** still open: Unicode confusables table (Cyrillic/Latin homoglyph bypass of keyword regexes); HMAC (keyed) instead of plain SHA-256 for the audit chain so an insider with write access cannot forge the tail; pseudonym-replay guard so a user replaying a pseudonym they saw in the dashboard cannot drive rehydration; per-regex timeout for user-supplied `secrets.patterns` to defuse ReDoS in hostile configs.
 
 ---
 
@@ -337,4 +337,5 @@ Brief mapping for privacy-specific reviewers. STRIDE above remains the primary a
 
 ## Changelog of this document
 
-- 2026-04-16: Initial version (v1.0.0 threat model).
+- 2026-04-16 (v1.1.2): Version header bumped to 1.1.2; R5 mitigation text updated to reflect the now-closed P1-3 (Sigstore keyless + npm provenance); deferred items relabeled from "v1.1 candidates" to "v1.2 candidates". No threat-analysis change - identical controls and residual risks as v1.0.0.
+- 2026-04-16 (v1.0.0): Initial version.

@@ -328,7 +328,8 @@ Die folgenden Maßnahmen sind nach Art. 32 DSGVO sowie in Anlehnung an die Schut
 
 - Verschlüsselung der Datenübertragung mit TLS 1.3 (Fallback 1.2) für alle externen Verbindungen
 - **AInonymous-spezifisch**: Die Upstream-Verbindung zum konfigurierten LLM-Anbieter erfolgt ausschließlich über HTTPS; Zertifikatsprüfung ist aktiv.
-- **AInonymous-spezifisch**: Die Session Map, die Pseudonyme auf Originalwerte abbildet, wird mit AES-256-GCM verschlüsselt. Der Schlüssel wird pro Prozess frisch und zufällig erzeugt und verbleibt ausschließlich im Arbeitsspeicher. Eine Persistenz findet nicht statt. Der Zugriff auf die Forward-Map erfolgt über SHA-256-gehashte Keys.
+- **AInonymous-spezifisch**: Die Session Map, die Pseudonyme auf Originalwerte abbildet, wird mit AES-256-GCM verschlüsselt. Der Schlüssel wird pro Prozess frisch und zufällig erzeugt und verbleibt ausschließlich im Arbeitsspeicher, sofern die optionale Persistenz (`session.persist: false`) nicht aktiviert ist. Der Zugriff auf die Forward-Map erfolgt über SHA-256-gehashte Keys.
+- **AInonymous-spezifisch (opt-in-Persistenz)**: Wird `session.persist: true` gesetzt, so werden die verschlüsselten Session-Map-Einträge zusätzlich in einer lokalen SQLite-Datei (`ainonymous-session.db`, Standardpfad im Arbeitsverzeichnis) abgelegt, damit Pseudonyme über Prozess-Neustarts hinweg rehydrierbar bleiben. In diesem Modus muss der Schlüssel über `AINONYMOUS_SESSION_KEY` stabil bereitgestellt werden. Die Datei enthält ausschließlich Ciphertext (AES-256-GCM pro Zeile); sie ist in das Sicherheitskonzept der Arbeitsstation / des Hosts einzubeziehen (Festplattenverschlüsselung, Zugriffsrechte `0600`).
 - **AInonymous-spezifisch**: Secrets (API-Schlüssel, Passwörter, Tokens) werden permanent durch `***REDACTED***` ersetzt und nicht rehydriert.
 - Protokollierung des ausgehenden Datenverkehrs auf Netzwerkebene
 - Kryptographisch signierte Releases (siehe Anhang zu Supply-Chain-Maßnahmen)
@@ -351,7 +352,7 @@ Die folgenden Maßnahmen sind nach Art. 32 DSGVO sowie in Anlehnung an die Schut
 ## A1.7 Trennungskontrolle
 
 - Mandantentrennung auf Ebene von `[Datenbank / Namespace / Kubernetes-Namespace / Prozess]`
-- **AInonymous-spezifisch**: Session Maps werden prozessweise geführt; zwischen Prozessen besteht keine gemeinsame Datenhaltung.
+- **AInonymous-spezifisch**: Session Maps werden prozessweise geführt. Zwischen Prozessen besteht keine gemeinsame Datenhaltung, sofern die optionale Persistenz (`session.persist: true`) nicht aktiviert ist. Bei aktivierter Persistenz wird die gemeinsame SQLite-Datei pro Deployment (nicht pro Mandant) geführt; Mandantentrennung ist in diesem Modus über separate Prozess- / Container-Instanzen mit jeweils eigener Datei und eigenem `AINONYMOUS_SESSION_KEY` sicherzustellen.
 - Trennung produktiver Daten von Test- und Entwicklungsdaten; Produktionsdaten werden nicht in nichtproduktive Umgebungen übernommen.
 
 ## A1.8 Pseudonymisierung und Verschlüsselung (Art. 32 Abs. 1 lit. a DSGVO)

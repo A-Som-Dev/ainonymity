@@ -16,7 +16,7 @@ docker run -d --name ainonymous \
   -p 127.0.0.1:8100:8100 \
   -v /var/lib/ainonymous/audit:/app/ainonymous-audit \
   -e AINONYMOUS_HOST=0.0.0.0 \
-  ainonymous:1.0.0
+  ainonymous:1.1.2
 
 # Graceful shutdown
 ainonymous stop
@@ -111,7 +111,7 @@ ainonymous start
 
 If an entry in the SQLite file cannot be decrypted after rotation (wrong key, tampering, truncated file), the proxy discards that row at load time with an aggregated `log.warn` — no silent data corruption, but mapping for the affected entry is lost.
 
-A first-class `ainonymous key rotate` command is tracked as a v1.1 candidate (see THREAT_MODEL.md).
+A first-class `ainonymous key rotate` command is tracked as a v1.2 candidate (see THREAT_MODEL.md).
 
 ## Upgrade
 
@@ -124,7 +124,7 @@ ainonymous stop
 
 # 3. Upgrade
 npm install -g ainonymous@latest
-# or: docker pull ainonymous:1.1.0
+# or: docker pull ainonymous:1.1.2
 
 # 4. Start
 ainonymous start

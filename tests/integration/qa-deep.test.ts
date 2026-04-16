@@ -753,7 +753,7 @@ describe('QA: GEFUNDENE BUGS - Dokumentation', () => {
 
   it.skip('KNOWN LIMIT: IBAN-Pattern has no country-code validation', () => {
     // Pattern matches any two uppercase letters + digits, including invalid
-    // country codes like "AB". Tracked for v1.1: validate against ISO 3166-1
+    // country codes like "AB". Tracked for v1.2: validate against ISO 3166-1
     // alpha-2 IBAN-participating list.
     const hits = matchPII('Referenz: AB12345678901234567890');
     const ibans = hits.filter((h) => h.type === 'iban');
