@@ -10,6 +10,7 @@ const KNOWN_BEHAVIOR_KEYS = new Set([
   'compliance',
   'upstream',
   'mgmt_token',
+  'aggression',
 ]);
 const KNOWN_CODE_KEYS = new Set([
   'language',
@@ -64,6 +65,16 @@ export function validateRawConfig(raw: Record<string, unknown>): ValidationIssue
       issues.push({ path: 'behavior.compliance', message: 'must be a string', severity: 'error' });
     }
 
+    if (b.aggression !== undefined) {
+      if (b.aggression !== 'low' && b.aggression !== 'medium' && b.aggression !== 'high') {
+        issues.push({
+          path: 'behavior.aggression',
+          message: "must be 'low', 'medium' or 'high'",
+          severity: 'error',
+        });
+      }
+    }
+
     if (b.mgmt_token !== undefined) {
       if (typeof b.mgmt_token !== 'string') {
         issues.push({
@@ -93,12 +104,23 @@ export function validateRawConfig(raw: Record<string, unknown>): ValidationIssue
       }
       for (const provider of ['anthropic', 'openai'] as const) {
         const v = u[provider];
-        if (v !== undefined && (typeof v !== 'string' || !/^https?:\/\//.test(v))) {
-          issues.push({
-            path: `behavior.upstream.${provider}`,
-            message: 'must be an http(s) URL',
-            severity: 'error',
-          });
+        if (v !== undefined) {
+          if (typeof v !== 'string' || !/^https:\/\//.test(v)) {
+            issues.push({
+              path: `behavior.upstream.${provider}`,
+              message: 'must be an https:// URL. plain http would send the API key in the clear',
+              severity: 'error',
+            });
+            continue;
+          }
+          const hostIssue = describeUntrustedHost(v, provider);
+          if (hostIssue) {
+            issues.push({
+              path: `behavior.upstream.${provider}`,
+              message: hostIssue,
+              severity: 'error',
+            });
+          }
         }
       }
     }
@@ -189,6 +211,34 @@ export function validateRawConfig(raw: Record<string, unknown>): ValidationIssue
 /** Types for consumers that want to check success without inspecting the issue list. */
 export function hasErrors(issues: ValidationIssue[]): boolean {
   return issues.some((i) => i.severity === 'error');
+}
+
+const UPSTREAM_ALLOWED_HOSTS: Record<'anthropic' | 'openai', Set<string>> = {
+  anthropic: new Set(['api.anthropic.com', 'localhost', '127.0.0.1', '::1']),
+  openai: new Set(['api.openai.com', 'localhost', '127.0.0.1', '::1']),
+};
+
+/** Returns a human-readable reason string when the upstream URL points at an
+ *  untrusted host, or null when the host is acceptable. Catches user-info
+ *  attacks ("https://api.anthropic.com@attacker.com") and IDN homographs
+ *  (punycode mismatch with the expected host). Localhost and 127.0.0.1 stay
+ *  allowed for tests and local inference gateways. */
+export function describeUntrustedHost(
+  url: string,
+  provider: 'anthropic' | 'openai',
+): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `unparseable URL`;
+  }
+  if (parsed.username || parsed.password) {
+    return `URL carries user-info credentials (${parsed.username ? 'username' : 'password'}). likely a redirect attack (e.g. https://api.${provider}.com@attacker.com). Strip them or use a plain https://host form.`;
+  }
+  const hostname = parsed.hostname;
+  if (UPSTREAM_ALLOWED_HOSTS[provider].has(hostname)) return null;
+  return `host "${hostname}" is not the known ${provider} endpoint. Allowed: ${[...UPSTREAM_ALLOWED_HOSTS[provider]].join(', ')}. To proxy through a custom gateway, run it on localhost.`;
 }
 
 export type { AInonymousConfig };

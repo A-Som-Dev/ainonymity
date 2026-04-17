@@ -24,6 +24,46 @@ describe('config validation', () => {
     expect(hasErrors(issues)).toBe(true);
   });
 
+  it('rejects plain http upstream (api key would leak)', () => {
+    const issues = validateRawConfig({
+      behavior: { upstream: { anthropic: 'http://api.anthropic.com' } },
+    });
+    const err = issues.find((i) => i.path === 'behavior.upstream.anthropic');
+    expect(err?.severity).toBe('error');
+  });
+
+  it('rejects user-info redirect attack', () => {
+    const issues = validateRawConfig({
+      behavior: { upstream: { anthropic: 'https://api.anthropic.com@attacker.com' } },
+    });
+    const err = issues.find((i) => i.path === 'behavior.upstream.anthropic');
+    expect(err?.severity).toBe('error');
+    expect(err?.message).toMatch(/user-info|redirect/i);
+  });
+
+  it('rejects a foreign host masquerading as anthropic', () => {
+    const issues = validateRawConfig({
+      behavior: { upstream: { anthropic: 'https://evil.example.com' } },
+    });
+    expect(hasErrors(issues)).toBe(true);
+  });
+
+  it('accepts localhost upstream for dev/test', () => {
+    const issues = validateRawConfig({
+      behavior: { upstream: { anthropic: 'https://localhost:8443' } },
+    });
+    const err = issues.find((i) => i.path === 'behavior.upstream.anthropic');
+    expect(err).toBeUndefined();
+  });
+
+  it('accepts the canonical https upstream', () => {
+    const issues = validateRawConfig({
+      behavior: { upstream: { anthropic: 'https://api.anthropic.com' } },
+    });
+    const err = issues.find((i) => i.path === 'behavior.upstream.anthropic');
+    expect(err).toBeUndefined();
+  });
+
   it('warns about unknown top-level fields', () => {
     const issues = validateRawConfig({ totally_unknown: 'x' });
     const warn = issues.find((i) => i.path === 'totally_unknown');

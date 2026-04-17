@@ -25,7 +25,7 @@ describe('config loader', () => {
         'utf-8',
       );
       const cfg = loadConfig(tmp);
-      // Legacy file is deliberately NOT loaded — user gets defaults, not LegacyCorp.
+      // Legacy file is deliberately NOT loaded. user gets defaults, not LegacyCorp.
       expect(cfg.identity.company).not.toBe('LegacyCorp');
       expect(cfg.version).toBe(1);
     } finally {

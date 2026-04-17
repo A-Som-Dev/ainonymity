@@ -10,7 +10,7 @@ import type {
 } from '../types.js';
 import { DEFAULT_CONFIG } from './schema.js';
 import { autoDetect } from './auto-detect.js';
-import { validateRawConfig, hasErrors } from './validate.js';
+import { validateRawConfig, hasErrors, describeUntrustedHost } from './validate.js';
 import { log } from '../logger.js';
 
 const CONFIG_FILENAME = '.ainonymous.yml';
@@ -121,11 +121,41 @@ function mapBehaviorConfig(defaults: BehaviorConfig, raw: Record<string, unknown
   const envAnthropic = process.env['AINONYMOUS_UPSTREAM_ANTHROPIC'];
   const envOpenai = process.env['AINONYMOUS_UPSTREAM_OPENAI'];
   if (envAnthropic || envOpenai) {
+    // Env override still has to pass the same https + host checks as the
+    // yaml path. otherwise a malicious wrapper script could simply export
+    // AINONYMOUS_UPSTREAM_ANTHROPIC=http://evil.com and siphon the API key.
+    if (envAnthropic) {
+      if (!/^https:\/\//.test(envAnthropic)) {
+        throw new Error(
+          'AINONYMOUS_UPSTREAM_ANTHROPIC must start with https://. plain http would send the API key in the clear',
+        );
+      }
+      const hostIssue = describeUntrustedHost(envAnthropic, 'anthropic');
+      if (hostIssue) {
+        throw new Error(`AINONYMOUS_UPSTREAM_ANTHROPIC rejected: ${hostIssue}`);
+      }
+    }
+    if (envOpenai) {
+      if (!/^https:\/\//.test(envOpenai)) {
+        throw new Error(
+          'AINONYMOUS_UPSTREAM_OPENAI must start with https://. plain http would send the API key in the clear',
+        );
+      }
+      const hostIssue = describeUntrustedHost(envOpenai, 'openai');
+      if (hostIssue) {
+        throw new Error(`AINONYMOUS_UPSTREAM_OPENAI rejected: ${hostIssue}`);
+      }
+    }
     upstream = {
       anthropic: envAnthropic ?? upstream.anthropic,
       openai: envOpenai ?? upstream.openai,
     };
   }
+
+  const aggression =
+    raw.aggression === 'low' || raw.aggression === 'medium' || raw.aggression === 'high'
+      ? raw.aggression
+      : defaults.aggression;
 
   return {
     interactive: typeof raw.interactive === 'boolean' ? raw.interactive : defaults.interactive,
@@ -136,6 +166,7 @@ function mapBehaviorConfig(defaults: BehaviorConfig, raw: Record<string, unknown
     compliance: typeof raw.compliance === 'string' ? raw.compliance : defaults.compliance,
     upstream,
     mgmtToken: typeof raw.mgmt_token === 'string' ? raw.mgmt_token : defaults.mgmtToken,
+    aggression,
   };
 }
 

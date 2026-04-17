@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG: AInonymousConfig = {
       openai: 'https://api.openai.com',
     },
     mgmtToken: undefined,
+    aggression: 'medium',
   },
   session: {
     persist: false,
