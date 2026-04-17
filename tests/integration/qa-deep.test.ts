@@ -783,9 +783,10 @@ describe('QA: GEFUNDENE BUGS - Dokumentation', () => {
     expect(hits).toContainEqual(expect.objectContaining({ type: 'openai-key-new' }));
   });
 
-  it('BUG #8: Rehydration mit doppelter Anonymisierung erzeugt Phantom-Einträge', async () => {
-    // Bei doppelter Anonymisierung wird das Pseudonym erneut als PII erkannt
-    // und ein neues Pseudonym erzeugt. Die Session Map wächst unkontrolliert.
+  it('BUG #8 (fixed): doppelte Anonymisierung erzeugt keine Phantom-Einträge mehr', async () => {
+    // Der resolveToTrueOriginal-Cascade in pseudoFor mappt den bereits
+    // pseudonymisierten String zurück zum echten Original und findet dort
+    // den existierenden Map-Eintrag. zweiter anonymize() lässt die Map unverändert.
     await initParser();
     const config = makeConfig();
     const pipeline = new Pipeline(config);
@@ -794,14 +795,10 @@ describe('QA: GEFUNDENE BUGS - Dokumentation', () => {
     const r1 = await pipeline.anonymize(input);
     const sizeBefore = pipeline.getSessionMap().size;
 
-    // Pseudonym wird erneut anonymisiert
     await pipeline.anonymize(r1.text);
     const sizeAfter = pipeline.getSessionMap().size;
 
-    // Die Map wächst - das ist ein Nebeneffekt
-    // user1@company-alpha.de wird erneut als E-Mail erkannt
-    expect(sizeAfter).toBeGreaterThan(sizeBefore);
-    // Keine Assertion - nur Dokumentation dass das passiert
+    expect(sizeAfter).toBe(sizeBefore);
   });
 });
 
