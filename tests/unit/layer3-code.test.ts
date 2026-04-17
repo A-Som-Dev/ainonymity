@@ -194,7 +194,7 @@ describe('CodeLayer', () => {
     ctx.config.code.redactBodies = ['**/*.py'];
     ctx.config.code.language = 'python';
     ctx.filePath = 'scripts/constants.py';
-    // top-level code only, no functions — AST will find 0 bodies
+    // top-level code only, no functions. AST will find 0 bodies
     const code = 'SECRET_KEY = "hunter2hunter2"\nAPI_TOKEN = "abc123def456"\n';
     const result = await layer.processAsync(code, ctx);
     expect(result.text).not.toContain('hunter2');
@@ -250,5 +250,73 @@ describe('CodeLayer', () => {
     const code = 'const val SECRET = "hunter2ktvalue"\nfun other() { return 1 }';
     const result = await layer.processAsync(code, ctx);
     expect(result.text).not.toContain('hunter2ktvalue');
+  });
+});
+
+describe('CodeLayer aggression modes', () => {
+  let layer: CodeLayer;
+  let baseCtx: PipelineContext;
+
+  beforeAll(async () => {
+    await initParser();
+  });
+
+  beforeEach(() => {
+    layer = new CodeLayer();
+    baseCtx = {
+      sessionMap: new BiMap(),
+      config: {
+        ...getDefaults(),
+        code: {
+          ...getDefaults().code,
+          language: 'java',
+          domainTerms: ['Network'],
+          preserve: [],
+        },
+      },
+    };
+  });
+
+  it('low: rewrites compound identifiers that contain a domain_term (former medium)', async () => {
+    baseCtx.config.behavior = { ...baseCtx.config.behavior, aggression: 'low' };
+    const code = 'public class UserService { NetworkManager manager; String other; }';
+    const result = await layer.processAsync(code, baseCtx);
+    // low now does what pre-v1.2 medium did: compound/standalone domain_term rewrite
+    expect(result.text).not.toContain('NetworkManager');
+    // class and non-domain names stay readable in low (no AST obfuscation)
+    expect(result.text).toContain('UserService');
+    expect(result.text).toContain('other');
+  });
+
+  it('medium (default): full AST obfuscation for classes, types, and vars', async () => {
+    baseCtx.config.behavior = { ...baseCtx.config.behavior, aggression: 'medium' };
+    const code = 'public class UserService { NetworkManager manager; String other; }';
+    const result = await layer.processAsync(code, baseCtx);
+    // medium now covers every declared identifier, not just domain_term compounds
+    expect(result.text).not.toContain('UserService');
+    expect(result.text).not.toContain('NetworkManager');
+  });
+
+  it('high: pseudonymizes every non-preserved identifier', async () => {
+    baseCtx.config.behavior = { ...baseCtx.config.behavior, aggression: 'high' };
+    const code = 'public class UserService { NetworkManager manager; String other; }';
+    const result = await layer.processAsync(code, baseCtx);
+    expect(result.text).not.toContain('UserService');
+    expect(result.text).not.toContain('NetworkManager');
+  });
+
+  it('medium still honors preserve', async () => {
+    baseCtx.config.behavior = { ...baseCtx.config.behavior, aggression: 'medium' };
+    baseCtx.config.code.preserve = ['NetworkManager'];
+    const code = 'public class NetworkManager {}';
+    const result = await layer.processAsync(code, baseCtx);
+    expect(result.text).toContain('NetworkManager');
+  });
+
+  it('low still replaces standalone domain_term matches', async () => {
+    baseCtx.config.behavior = { ...baseCtx.config.behavior, aggression: 'low' };
+    const code = '// see Network specification';
+    const result = await layer.processAsync(code, baseCtx);
+    expect(result.text).not.toContain('Network');
   });
 });

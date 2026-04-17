@@ -157,7 +157,7 @@ const BUILTINS = new Set([
   'exports',
   '__dirname',
   '__filename',
-  // AInonymous secret marker — must not be pseudonymized back through code layer
+  // AInonymous secret marker. must not be pseudonymized back through code layer
   'REDACTED',
   // Standard method names
   'toString',
@@ -674,10 +674,16 @@ export async function initParser(): Promise<void> {
   await initTreeSitter();
 }
 
+export interface ExtractOptions {
+  /** medium: skip queries marked `mode: 'high'`; high: run all queries. */
+  mode?: 'medium' | 'high';
+}
+
 export async function extractIdentifiers(
   code: string,
   lang: string,
   preserve: string[] = [],
+  opts: ExtractOptions = {},
 ): Promise<IdentifierInfo[]> {
   const parser = await getParser(lang);
   const language = await getLanguage(lang);
@@ -688,8 +694,10 @@ export async function extractIdentifiers(
   const preserveSet = new Set(preserve);
   const seen = new Set<string>();
   const results: IdentifierInfo[] = [];
+  const mode = opts.mode ?? 'high';
 
   for (const def of queries) {
+    if (def.mode === 'high' && mode !== 'high') continue;
     const query = language.query(def.pattern);
     const captures = query.captures(tree.rootNode);
 

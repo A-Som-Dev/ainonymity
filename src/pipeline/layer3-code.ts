@@ -4,6 +4,12 @@ import {
   extractFunctionBodies,
   extractTopLevelValues,
 } from '../ast/extractor.js';
+import {
+  isLanguageKeyword,
+  isTechBrand,
+  isTechBrandCaseInsensitive,
+  shouldPreserveIdentifier,
+} from '../ast/keywords.js';
 import { splitIdentifier, escapeRegex, STRUCTURAL_SUFFIXES, pathMatchesAny } from '../shared.js';
 import { log } from '../logger.js';
 import type { Layer, PipelineContext, AnonymizeResult, Replacement } from '../types.js';
@@ -35,6 +41,16 @@ const STRUCTURAL_PREFIXES = new Set([
   'handle',
   'process',
   'parse',
+  // HTTP verbs. keep REST method names readable. `get`/`delete` were
+  // already present; the others are needed so `patchService` doesn't become
+  // `betaService` and break the Spring @PatchMapping mental model.
+  'patch',
+  'post',
+  'put',
+  'head',
+  'options',
+  'trace',
+  'connect',
   'format',
   'convert',
   'transform',
@@ -141,11 +157,13 @@ export class CodeLayer implements Layer {
 
   process(text: string, ctx: PipelineContext): AnonymizeResult {
     const { domainTerms } = ctx.config.code;
+    const preserveSet = new Set(ctx.config.code.preserve);
     let result = text;
     const replacements: Replacement[] = [];
 
     for (const term of domainTerms) {
       if (!result.includes(term)) continue;
+      if (preserveSet.has(term)) continue;
 
       const pseudo = this.resolveTerm(term, ctx);
       const re = new RegExp(`\\b${escapeRegex(term)}\\b`, 'g');
@@ -171,16 +189,30 @@ export class CodeLayer implements Layer {
   async processAsync(text: string, ctx: PipelineContext): Promise<AnonymizeResult> {
     const allReplacements: Replacement[] = [];
     let result = text;
+    const preserveSet = new Set(ctx.config.code.preserve);
+
+    // sensitive_paths forces high regardless of the global aggression setting.
+    const isSensitive =
+      ctx.filePath != null && pathMatchesAny(ctx.filePath, ctx.config.code.sensitivePaths);
+    const mode = isSensitive ? 'high' : ctx.config.behavior.aggression;
 
     if (ctx.filePath && pathMatchesAny(ctx.filePath, ctx.config.code.redactBodies)) {
       result = await this.redactAllBodiesAsync(result, allReplacements, ctx.config.code.language);
     }
 
     result = this.handleRedactAnnotations(result, allReplacements);
-    result = await this.applyAstIdentifiers(result, allReplacements, ctx);
-    result = this.handlePackagePaths(result, allReplacements, ctx);
-    result = this.applyCompoundDomainTerms(result, allReplacements, ctx);
-    result = this.applyStandaloneDomainTerms(result, allReplacements, ctx);
+
+    // See patterns/aggression-modes.md for the full mode matrix and ordering rationale.
+    if (mode === 'medium' || mode === 'high') {
+      // Package paths first so imports register their pseudonyms before AST walk.
+      result = this.handlePackagePaths(result, allReplacements, ctx);
+      result = await this.applyAstIdentifiers(result, allReplacements, ctx, preserveSet, mode);
+      result = this.applyCompoundDomainTerms(result, allReplacements, ctx, preserveSet);
+    } else {
+      result = this.applyCompoundDomainTerms(result, allReplacements, ctx, preserveSet);
+    }
+
+    result = this.applyStandaloneDomainTerms(result, allReplacements, ctx, preserveSet);
 
     return { text: result, replacements: allReplacements };
   }
@@ -189,23 +221,55 @@ export class CodeLayer implements Layer {
     text: string,
     out: Replacement[],
     ctx: PipelineContext,
+    preserveSet: Set<string>,
+    mode: 'medium' | 'high' = 'medium',
   ): Promise<string> {
     const lang = ctx.config.code.language;
     let result = text;
 
     try {
-      const ids = await extractIdentifiers(result, lang, ctx.config.code.preserve);
+      // Only run tree-sitter on fenced code. Raw prose runs through AST as
+      // valid-looking identifiers and rehydrate then substring-collides.
+      const fenceSources = extractCodeFenceSources(result);
+      const looksLikeCode =
+        /^\s*(?:import|from|package|#include|require)\s+\S/m.test(result) ||
+        /(?:^|\n)\s*(?:def|class|fn|func)\s+\w+[^\n]*[:({]/.test(result) ||
+        /(?:^|\n)\s*(?:const|let|var|pub|public|private|protected)\s+\w+\s*[:=(]/.test(result) ||
+        (/\{[\s\S]*?\}/.test(result) &&
+          /\b(?:class|interface|struct|enum|function|def|fn|func|package|public|private|protected|return|if|for|while)\b/.test(
+            result,
+          ));
+      const sources =
+        fenceSources.length > 0 ? fenceSources : looksLikeCode ? [result] : [];
+      const ids = (
+        await Promise.all(
+          sources.map((src) =>
+            extractIdentifiers(src, lang, ctx.config.code.preserve, { mode }),
+          ),
+        )
+      ).flat();
+
+      // Inline-backtick tokens bypass the fence-based AST, handle them explicitly.
+      for (const token of extractInlineCodeTokens(result)) {
+        ids.push({ name: token, kind: 'inline', line: 0, column: 0 });
+      }
       const replMap = new Map<string, string>();
 
       for (const id of ids) {
         if (replMap.has(id.name)) continue;
-        const pseudo = this.pseudoFor(id.name, id.kind, ctx);
+        if (preserveSet.has(id.name)) continue;
+        if (shouldPreserveIdentifier(id.name, lang)) continue;
+        const pseudo = this.pseudoFor(id.name, id.kind, ctx, lang);
         if (pseudo && pseudo !== id.name) {
           replMap.set(id.name, pseudo);
         }
       }
 
+      // Stale session entries must not override the current preserve list or
+      // rewrite language keywords / framework annotations.
       for (const [orig, pseudo] of ctx.sessionMap.entries()) {
+        if (preserveSet.has(orig)) continue;
+        if (shouldPreserveIdentifier(orig, lang)) continue;
         if (!replMap.has(orig) && result.includes(orig)) {
           replMap.set(orig, pseudo);
         }
@@ -224,7 +288,12 @@ export class CodeLayer implements Layer {
     return result;
   }
 
-  private applyCompoundDomainTerms(text: string, out: Replacement[], ctx: PipelineContext): string {
+  private applyCompoundDomainTerms(
+    text: string,
+    out: Replacement[],
+    ctx: PipelineContext,
+    preserveSet: Set<string>,
+  ): string {
     let result = text;
     for (const term of ctx.config.code.domainTerms) {
       if (!result.includes(term)) continue;
@@ -236,6 +305,7 @@ export class CodeLayer implements Layer {
       while ((cm = compound.exec(result)) !== null) {
         const full = cm[1];
         if (compoundMap.has(full)) continue;
+        if (preserveSet.has(full)) continue;
         const pseudo = this.pseudoFor(full, 'identifier', ctx);
         if (pseudo && pseudo !== full) {
           compoundMap.set(full, pseudo);
@@ -251,29 +321,36 @@ export class CodeLayer implements Layer {
     text: string,
     out: Replacement[],
     ctx: PipelineContext,
+    preserveSet: Set<string>,
   ): string {
-    let result = text;
+    const lookup = new Map<string, string>();
     for (const term of ctx.config.code.domainTerms) {
-      if (!result.includes(term)) continue;
-
-      const pseudo = this.resolveTerm(term, ctx);
-      const re = new RegExp(`\\b${escapeRegex(term)}\\b`, 'g');
-
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(result)) !== null) {
-        out.push({
-          original: term,
-          pseudonym: pseudo,
-          layer: 'code',
-          type: 'domain-term',
-          offset: m.index,
-          length: term.length,
-        });
-      }
-
-      result = result.replace(re, pseudo);
+      if (preserveSet.has(term)) continue;
+      if (!text.includes(term)) continue;
+      lookup.set(term, this.resolveTerm(term, ctx));
     }
-    return result;
+    if (lookup.size === 0) return text;
+
+    const sorted = [...lookup.keys()].sort((a, b) => b.length - a.length);
+    const combined = new RegExp(`\\b(?:${sorted.map(escapeRegex).join('|')})\\b`, 'g');
+
+    let m: RegExpExecArray | null;
+    while ((m = combined.exec(text)) !== null) {
+      const matched = m[0];
+      const pseudo = lookup.get(matched);
+      if (pseudo === undefined) continue;
+      out.push({
+        original: matched,
+        pseudonym: pseudo,
+        layer: 'code',
+        type: 'domain-term',
+        offset: m.index,
+        length: matched.length,
+      });
+    }
+
+    combined.lastIndex = 0;
+    return text.replace(combined, (match) => lookup.get(match) ?? match);
   }
 
   private applyReplacementMap(
@@ -312,6 +389,7 @@ export class CodeLayer implements Layer {
   private handlePackagePaths(text: string, out: Replacement[], ctx: PipelineContext): string {
     const company = ctx.config.identity.company?.toLowerCase();
     if (!company) return text;
+    const lang = ctx.config.code.language;
 
     // match reverse-domain patterns: tld.company.project[.sub...]
     // Covers common ccTLDs, gTLDs, and new gTLDs used in enterprise Java packages
@@ -370,7 +448,15 @@ export class CodeLayer implements Layer {
       const anonymized = parts
         .map((part, i) => {
           if (i === 0) return part; // TLD preserved
-          return this.resolveTerm(part, ctx);
+          const isLast = i === parts.length - 1;
+          const isPascal = /^[A-Z]/.test(part);
+          // Last segment of a java-style import may be the class name itself
+          // (`import com.acme.pkg.FooService;`). Route it through pseudoFor so
+          // it shares a stem with the class declaration and its usages.
+          if (isLast && isPascal) {
+            return this.pseudoFor(part, 'class', ctx, lang) ?? part;
+          }
+          return this.resolveTerm(part, ctx, lang);
         })
         .join('.');
 
@@ -611,9 +697,20 @@ export class CodeLayer implements Layer {
     return result;
   }
 
-  private pseudoFor(name: string, kind: string, ctx: PipelineContext): string | null {
+  private pseudoFor(
+    name: string,
+    kind: string,
+    ctx: PipelineContext,
+    lang?: string,
+  ): string | null {
     const existing = ctx.sessionMap.getByOriginal(name);
     if (existing) return existing;
+
+    // Already a pseudonym from a prior step in the pipeline (e.g. package
+    // paths ran first and rewrote an import). do not re-pseudonymize.
+    if (ctx.sessionMap.getByPseudonym(name)) return name;
+
+    if (shouldPreserveIdentifier(name, lang)) return name;
 
     const parts = splitIdentifier(name);
     const { domainTerms } = ctx.config.code;
@@ -624,6 +721,21 @@ export class CodeLayer implements Layer {
     const mapped = parts.map((part) => {
       const lower = part.toLowerCase();
 
+      // Split-level preserve is intentionally narrower than full-identifier
+      // preserve: only language keywords (`package`, `class`, `def`) and
+      // public technology brands (`Kafka`, `Spring`, `Postgres`) are
+      // uncontroversial. generic annotations like `@Order` or `@Query`
+      // would wrongly freeze legitimate domain terms embedded in compound
+      // names.
+      if (isLanguageKeyword(part, lang) || isLanguageKeyword(lower, lang)) {
+        return { text: part, isDomain: false };
+      }
+      // Tech brands preserve across casing so `oracleClient` keeps the
+      // `oracle` stem. Explicit whitelist, not length-based, because `next`
+      // / `vault` / `git` collide with common English words.
+      if (isTechBrand(part) || isTechBrandCaseInsensitive(part)) {
+        return { text: part, isDomain: false };
+      }
       if (!sensitive && STRUCTURAL_SUFFIXES.has(lower)) return { text: part, isDomain: false };
       if (!sensitive && STRUCTURAL_PREFIXES.has(lower)) return { text: part, isDomain: false };
       if (domainSet.has(lower)) return { text: part, isDomain: true };
@@ -638,7 +750,7 @@ export class CodeLayer implements Layer {
     const rebuilt = mapped
       .map((p) => {
         if (!p.isDomain) return p.text;
-        return this.resolveTerm(p.text, ctx);
+        return this.resolveTerm(p.text, ctx, lang);
       })
       .join('');
 
@@ -646,14 +758,102 @@ export class CodeLayer implements Layer {
     return rebuilt;
   }
 
-  private resolveTerm(term: string, ctx: PipelineContext): string {
+  private resolveTerm(term: string, ctx: PipelineContext, lang?: string): string {
     const existing = ctx.sessionMap.getByOriginal(term);
     if (existing) return existing;
 
-    const pseudo = this.gen.identifier(term);
+    if (isLanguageKeyword(term, lang) || isLanguageKeyword(term.toLowerCase(), lang)) {
+      return term;
+    }
+
+    // Case-cascade: camelCase `fooRepository` and PascalCase `FooRepository`
+    // share a root token `foo`/`Foo`. Keep them bound to the same underlying
+    // pseudo by searching the session map for any case variant, then recasing
+    // the pseudo to match the caller's casing.
+    const variants = caseVariants(term);
+    for (const variant of variants) {
+      const mapped = ctx.sessionMap.getByOriginal(variant);
+      if (mapped) {
+        const recased = matchCase(mapped, term);
+        // Only register a new entry when the recased pseudo differs from the
+        // variant's pseudo. Registering the same pseudo under a new original
+        // would blow the BiMap uniqueness invariant. The caller still gets
+        // the recased string, which is correct because the full compound
+        // (e.g. `AcmeInvoiceService`) gets stored by pseudoFor regardless.
+        if (recased !== mapped && recased !== term) {
+          ctx.sessionMap.set(term, recased, 'code', 'domain-term');
+        }
+        return recased;
+      }
+    }
+
+    const generated = this.gen.identifier(term);
+    const pseudo = matchCase(generated, term);
     ctx.sessionMap.set(term, pseudo, 'code', 'domain-term');
     return pseudo;
   }
+}
+
+function caseVariants(term: string): string[] {
+  if (!term) return [];
+  const lower = term.toLowerCase();
+  const upper = term.toUpperCase();
+  const pascal = term[0].toUpperCase() + term.slice(1).toLowerCase();
+  const camel = term[0].toLowerCase() + term.slice(1);
+  return [...new Set([lower, upper, pascal, camel])].filter((v) => v !== term);
+}
+
+function matchCase(pseudo: string, source: string): string {
+  if (!source || !pseudo) return pseudo;
+  if (source === source.toUpperCase() && source !== source.toLowerCase()) {
+    return pseudo.toUpperCase();
+  }
+  if (source[0] === source[0].toLowerCase()) {
+    return pseudo[0].toLowerCase() + pseudo.slice(1);
+  }
+  return pseudo[0].toUpperCase() + pseudo.slice(1);
+}
+
+function extractCodeFenceSources(text: string): string[] {
+  const fences: string[] = [];
+  // match ``` followed by optional language tag and newline, capture body
+  // until the next ``` on a line. Multiline and non-greedy.
+  const re = /```(?:[a-zA-Z0-9_+-]*)?\r?\n?([\s\S]*?)```/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m[1].length > 0) fences.push(m[1]);
+  }
+  return fences;
+}
+
+// Inline-backtick identifiers in chat prompts don't reach the AST because
+// there's no fenced code block, but they're still code tokens. Pull them
+// out and feed them straight to pseudoFor.
+export function extractInlineCodeTokens(text: string): string[] {
+  const tokens: string[] = [];
+  const tripleRanges: Array<[number, number]> = [];
+  const tripleRe = /```(?:[a-zA-Z0-9_+-]*)?\r?\n?[\s\S]*?```/g;
+  let m: RegExpExecArray | null;
+  while ((m = tripleRe.exec(text)) !== null) {
+    tripleRanges.push([m.index, m.index + m[0].length]);
+  }
+
+  const inlineRe = /`([^`\r\n]{2,64})`/g;
+  const seen = new Set<string>();
+  while ((m = inlineRe.exec(text)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (tripleRanges.some(([s, e]) => start >= s && end <= e)) continue;
+    const content = m[1].trim();
+    // Only treat as identifier-shaped when it looks like one (no spaces, has
+    // an alpha character, reasonable charset). Avoids grabbing short quoted
+    // strings or commands that happen to sit in backticks.
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{1,63}$/.test(content)) continue;
+    if (seen.has(content)) continue;
+    seen.add(content);
+    tokens.push(content);
+  }
+  return tokens;
 }
 
 function findMatchingBrace(text: string, openPos: number): number {

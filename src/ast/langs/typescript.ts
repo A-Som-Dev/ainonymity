@@ -1,6 +1,9 @@
 export interface QueryDef {
   kind: string;
   pattern: string;
+  /** If set to 'high', the query only runs when aggression=high.
+   *  Medium-mode extraction skips it. Default: runs in both medium and high. */
+  mode?: 'high';
 }
 
 export const typescriptQueries: QueryDef[] = [
