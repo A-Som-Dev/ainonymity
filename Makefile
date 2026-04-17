@@ -1,4 +1,4 @@
-.PHONY: build dev test lint check format clean start scan init audit audit-full sbom licenses
+.PHONY: build dev test lint check format clean start scan init audit audit-full sbom licenses install-hooks scan-staged scan-branch
 
 build:
 	npx tsc
@@ -59,3 +59,14 @@ init:
 
 graphify:
 	cd $(shell pwd) && graphify
+
+install-hooks:
+	git config core.hooksPath .githooks
+	chmod +x .githooks/pre-commit .githooks/pre-push scripts/scan-diff-for-secrets.mjs
+	@echo "hooks active. create .ainonymity-denylist.local for project-specific terms."
+
+scan-staged:
+	node scripts/scan-diff-for-secrets.mjs --staged
+
+scan-branch:
+	node scripts/scan-diff-for-secrets.mjs --range origin/master..HEAD

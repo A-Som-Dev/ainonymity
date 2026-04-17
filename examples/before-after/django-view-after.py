@@ -21,7 +21,7 @@ from apps.notifications.clients import SlackClient, MailClient
 
 log = logging.getLogger("Gamma.Epsilon")
 
-# prod DB replica, read-only — see infra/terraform/rds-replica.tf
+# prod DB replica, read-only. see infra/terraform/rds-replica.tf
 REPLICA_HOST = "theta.prod.alpha-corp.de"
 REPLICA_IP = "10.0.0.1"
 
@@ -42,7 +42,7 @@ class GammaBetaZetaViewSet(ModelViewSet):
         # Person Beta from partners team asked us to notify ops when a Platinum tier is created
         if request.data.get("tier") == "platinum":
             SlackClient(webhook=settings.SLACK_OPS_***REDACTED***).post(
-                f"New platinum Beta via {partner.name} — approve at "
+                f"New platinum Beta via {partner.name}. approve at "
                 f"https://Epsilon.alpha-corp.internal/approvals"
             )
             MailClient().send(
@@ -66,7 +66,7 @@ class GammaBetaZetaViewSet(ModelViewSet):
 
 
 class IotaContactView(ModelViewSet):
-    """Legacy view — Iota contact sync. To be removed once migration #284 lands."""
+    """Legacy view. Iota contact sync. To be removed once migration #284 lands."""
 
     def list(self, request):
         token = settings.IOTA_API_KEY  # ***REDACTED***

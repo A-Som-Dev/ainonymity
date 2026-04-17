@@ -31,13 +31,13 @@ Variance across runs sits in the 10-20 ms band for anonymize (shared-tenant CPU 
 
 ## SSE streaming caveat
 
-SSE responses go through a per-content-block sliding-buffer rehydrator so pseudonyms split across deltas (`Alpha` | `Corp` | `Service`) are reassembled before rehydration. The buffer is sized to `2 × max_pseudonym_length + 50` characters per active block and floored at 64. In practice this means the first visible text in a stream lags by up to the buffer size (typically ~60-150 chars) compared to a zero-rehydration passthrough. The lag does not accumulate — once the prefix is emitted, subsequent deltas flow at normal speed minus the trailing suffix, which is flushed on `content_block_stop` / `[DONE]`. Overhead of the buffer logic itself is <1 ms per typical assistant turn.
+SSE responses go through a per-content-block sliding-buffer rehydrator so pseudonyms split across deltas (`Alpha` | `Corp` | `Service`) are reassembled before rehydration. The buffer is sized to `2 × max_pseudonym_length + 50` characters per active block and floored at 64. In practice this means the first visible text in a stream lags by up to the buffer size (typically ~60-150 chars) compared to a zero-rehydration passthrough. The lag does not accumulate. once the prefix is emitted, subsequent deltas flow at normal speed minus the trailing suffix, which is flushed on `content_block_stop` / `[DONE]`. Overhead of the buffer logic itself is <1 ms per typical assistant turn.
 
 ## What is not measured here
 
 - **Concurrent load**: single-threaded Node event loop. 50 concurrent requests sharing one `Pipeline` will queue. For multi-user deployments, run multiple instances behind a load balancer.
 - **Large responses**: the SSE buffer flush at 1 MB and the 50 MB response cap limit how large a single rehydration gets. Measure in your environment if you regularly receive multi-megabyte LLM responses.
-- **Pattern-heavy secrets-only workloads**: the benchmark exercises all three layers. A proxy that only needs secret redaction (no identity or AST) would run faster — use `SecretsLayer` directly for that path.
+- **Pattern-heavy secrets-only workloads**: the benchmark exercises all three layers. A proxy that only needs secret redaction (no identity or AST) would run faster. use `SecretsLayer` directly for that path.
 - **Cold-start cost**: the first `anonymize()` call pays ~150-300 ms for WASM initialization. The 5-run warmup excludes this. Production deployments should pre-warm with a dummy request after startup.
 
 ## Performance budget

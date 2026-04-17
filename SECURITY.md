@@ -13,7 +13,7 @@ Please use GitHub's private vulnerability reporting: open the repository's **Sec
 
 Include what you can: description, reproduction steps, impact, and any suggested fix.
 
-This is a solo-maintained project — responses are best-effort, typically within a few days. Critical issues are prioritized; feel free to ping again if you don't hear back.
+This is a solo-maintained project. responses are best-effort, typically within a few days. Critical issues are prioritized; feel free to ping again if you don't hear back.
 
 ## Scope
 
@@ -31,7 +31,7 @@ Out of scope:
 ## Security Design
 
 - All traffic stays on localhost. The only outbound connection is the anonymized payload to the configured LLM endpoint. When binding to a non-localhost interface (e.g. Docker `0.0.0.0`), set `AINONYMOUS_MGMT_TOKEN` or `behavior.mgmt_token` to protect the management endpoints (`/metrics`, `/metrics/json`, `/dashboard`, `/dashboard/app.js`, `/dashboard/app.css`, `/events`). Without a token on `0.0.0.0` the start command logs a warning but still boots.
-- The session map's reverse lookup (pseudonym → original) is AES-256-GCM encrypted with a fresh random key per process. The forward lookup uses SHA-256 hashed keys. Keys live only in process memory; there is no persistence. The map also holds a lazily-built in-memory snapshot of decrypted originals to avoid re-running AES-GCM on every rehydration call — this is a performance vs exposure-window tradeoff. The snapshot is wiped on every `set()`, `clear()`, and `rotateKey()`, and never written to disk. It represents the same cleartext that already transits the heap during each normal decrypt; no new leak vector, just a longer residency.
+- The session map's reverse lookup (pseudonym → original) is AES-256-GCM encrypted with a fresh random key per process. The forward lookup uses SHA-256 hashed keys. Keys live only in process memory; there is no persistence. The map also holds a lazily-built in-memory snapshot of decrypted originals to avoid re-running AES-GCM on every rehydration call. this is a performance vs exposure-window tradeoff. The snapshot is wiped on every `set()`, `clear()`, and `rotateKey()`, and never written to disk. It represents the same cleartext that already transits the heap during each normal decrypt; no new leak vector, just a longer residency.
 - Secrets (API keys, passwords, tokens) are permanently redacted, never rehydrated.
 - The shutdown endpoint uses timing-safe token comparison with a per-process token. The token file location and permissions depend on the platform (see "Shutdown Token Storage" below). Management endpoints use the same timing-safe comparison on `Authorization: Bearer <token>`.
 - Error responses are generic; internal paths and stack traces are not returned to the client.
@@ -62,7 +62,7 @@ When `AINONYMOUS_MGMT_TOKEN` / `behavior.mgmt_token` is configured, `/dashboard`
 - **Non-localhost bind:** put the proxy behind a reverse proxy (nginx, Caddy, Traefik) that terminates its own authentication (Basic-Auth, OIDC, mTLS, IP allow-list) and forwards requests with the `Authorization: Bearer <token>` header added. Keep the proxy's own listener on `127.0.0.1` or a non-routable interface.
 - **Headless access:** `curl -H "Authorization: Bearer $TOKEN" http://host:8100/metrics` works as-is. The HTML dashboard is browser-facing; automation should hit `/metrics` or `/metrics/json` directly.
 
-Query-parameter tokens are deliberately not accepted for the management / dashboard token — URLs end up in proxy logs, browser history, and referrer headers. The separate `/shutdown` endpoint is a narrow exception: it accepts `?token=` because it is ephemeral (the process terminates on success), never hit from a browser, and the token is a fresh per-process value read from a `0600` file — so the referrer / history vectors do not apply.
+Query-parameter tokens are deliberately not accepted for the management / dashboard token. URLs end up in proxy logs, browser history, and referrer headers. The separate `/shutdown` endpoint is a narrow exception: it accepts `?token=` because it is ephemeral (the process terminates on success), never hit from a browser, and the token is a fresh per-process value read from a `0600` file. so the referrer / history vectors do not apply.
 
 ### Shutdown Token Storage
 
@@ -88,11 +88,11 @@ Starting with the GitHub Actions release workflow, every release is signed with 
 ### What is published
 
 Each GitHub Release attaches:
-- `ainonymous-<version>.tgz` — tarball produced by `npm pack` in the release workflow
-- `ainonymous-<version>.tgz.sha256` — SHA-256 checksum
-- `ainonymous-<version>.tgz.sigstore.json` — Sigstore bundle (signature + certificate + transparency log proof)
-- `ainonymous-<version>.tgz.sig` and `.tgz.pem` — same signature and Fulcio certificate in split form, for tooling that doesn't speak bundles yet
-- `sbom.cdx.json` — CycloneDX SBOM, also signed (`sbom.cdx.json.sigstore.json`)
+- `ainonymous-<version>.tgz`. tarball produced by `npm pack` in the release workflow
+- `ainonymous-<version>.tgz.sha256`. SHA-256 checksum
+- `ainonymous-<version>.tgz.sigstore.json`. Sigstore bundle (signature + certificate + transparency log proof)
+- `ainonymous-<version>.tgz.sig` and `.tgz.pem`. same signature and Fulcio certificate in split form, for tooling that doesn't speak bundles yet
+- `sbom.cdx.json`. CycloneDX SBOM, also signed (`sbom.cdx.json.sigstore.json`)
 
 The tarball on the GitHub Release and the tarball on the npm registry both come from the same `npm run build` output in the same job, but they are not guaranteed to be byte-identical: `npm publish` packs its own tarball internally. If you want to verify the npm-registry artifact, use `npm audit signatures` (provenance). If you want to verify the GitHub Release asset, use cosign as shown below.
 
@@ -109,7 +109,7 @@ cosign verify-blob "ainonymous-${VERSION}.tgz" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 ```
 
-A successful run prints `Verified OK`. Any other output (cert mismatch, expired bundle, wrong identity) means the artifact was not produced by this repository's release workflow — treat it as untrusted.
+A successful run prints `Verified OK`. Any other output (cert mismatch, expired bundle, wrong identity) means the artifact was not produced by this repository's release workflow. treat it as untrusted.
 
 If you pulled the release from a branch instead of a tag (unusual), adjust the `@refs/tags/v${VERSION}` suffix to the ref cosign reports in the error message.
 
@@ -124,7 +124,7 @@ cosign verify-blob sbom.cdx.json \
 
 ### Verifying the npm package
 
-The npm CLI knows how to check provenance attestations itself — no cosign needed:
+The npm CLI knows how to check provenance attestations itself. no cosign needed:
 
 ```bash
 npm install -g ainonymous    # or add it as a dep in a scratch project
@@ -135,7 +135,7 @@ Output should include `verified registry signature` and `verified attestation` f
 
 ## Session Map Persistence (opt-in)
 
-By default the session map lives only in process memory and is discarded on exit. Setting `session.persist: true` in `.ainonymous.yml` (optionally with `session.persist_path: "./ainonymous-session.db"`) enables a SQLite-backed write-through cache so that pseudonyms survive restarts — useful when an in-flight LLM response arrives after the proxy was restarted, or when multiple short-lived wrapper invocations (`ainonymous -- git commit`) need a shared mapping.
+By default the session map lives only in process memory and is discarded on exit. Setting `session.persist: true` in `.ainonymous.yml` (optionally with `session.persist_path: "./ainonymous-session.db"`) enables a SQLite-backed write-through cache so that pseudonyms survive restarts. useful when an in-flight LLM response arrives after the proxy was restarted, or when multiple short-lived wrapper invocations (`ainonymous -- git commit`) need a shared mapping.
 
 Requires **Node.js 22.5 or newer**, because the feature uses the built-in `node:sqlite` module (no native build dependencies). On older Node versions the proxy refuses to start when `session.persist` is true with a clear error; everything else keeps working.
 
@@ -149,6 +149,10 @@ Confidentiality model:
 - TTL-based cleanup is not implemented. The DB grows monotonically until `clear()` or manual deletion.
 
 When in doubt: leave `session.persist: false`. The feature exists for continuity, not for audit retention.
+
+**Pseudonym collision guard.** Since v1.2 the BiMap's `set()` throws when a second *different* original tries to bind to an existing pseudonym. `PseudoGen` cycles 24 Greek letters and then appends numeric suffixes, so a long-running persisted DB can, in principle, generate the same pseudonym for two unrelated originals across restarts. Without the guard the reverse map would silently be overwritten and `rehydrate()` would return the wrong original for the winner pseudonym. If you hit this exception in production: restart the proxy and rotate `AINONYMOUS_SESSION_KEY` (fresh key → fresh DB state → fresh generator).
+
+**Audit-log truncation detection.** The hash chain alone stays internally consistent when an attacker with write access removes the tail of a `ainonymous-audit-YYYY-MM-DD.jsonl` file. Since v1.2 a sidecar `<file>.checkpoint` is written after every entry with `{lastSeq, lastHash}`. `verifyAuditChain(lines, expected)` takes the checkpoint as a required second input and reports tampering when the tail of the file no longer matches. Operators that script audit verification must pass `expected: 'required'` (or the parsed checkpoint) rather than the optional-mode default, otherwise a concurrent delete of both the JSONL tail and the checkpoint would still verify clean.
 
 ## Unicode Normalization
 

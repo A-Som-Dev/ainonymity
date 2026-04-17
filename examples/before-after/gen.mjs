@@ -29,7 +29,7 @@ const pipeline = new Pipeline({
 const input = readFileSync(resolve(here, 'input.md'), 'utf-8');
 const result = await pipeline.anonymize(input);
 
-const body = `# Output — what the LLM actually sees
+const body = `# Output. what the LLM actually sees
 
 Input: \`input.md\` (source prompt with secrets, domains, identifiers)
 Config: see \`gen.mjs\` (company Acme Corp, domains acme-corp.com/acme-corp.local, people Artur Sommer)
@@ -51,7 +51,7 @@ ${result.text}
 - \`Partner\` → pseudonymized (domain term)
 - Spring framework identifiers (\`@Service\`, \`CustomerRepository\` type annotation) preserved where they appear
 
-Rehydration would reverse all pseudonyms when the response comes back through the proxy. The \`***REDACTED***\` marker stays forever — secrets are never restored.
+Rehydration would reverse all pseudonyms when the response comes back through the proxy. The \`***REDACTED***\` marker stays forever. secrets are never restored.
 
 ## Reproduce
 

@@ -57,7 +57,7 @@ All operational logs are structured JSON on stdout/stderr:
 
 Ship to your SIEM via Filebeat, Fluent Bit, or `journalctl -o json` for systemd deployments.
 
-CLI user-facing messages (`proxy started on ...`) stay plain text — filter them out with `level != ""` in your log pipeline.
+CLI user-facing messages (`proxy started on ...`) stay plain text. filter them out with `level != ""` in your log pipeline.
 
 ## Audit Log
 
@@ -74,9 +74,9 @@ const badSeq = verifyAuditChain(lines);
 console.log(badSeq === null ? 'OK' : `chain broken at seq=${badSeq}`);
 ```
 
-A non-null result means an entry was tampered with or lost. The chain cannot detect tampering of the *last* entry — for that, use a periodic external checkpoint (e.g. digest the full file and commit to an append-only store).
+A non-null result means an entry was tampered with or lost. The chain cannot detect tampering of the *last* entry. for that, use a periodic external checkpoint (e.g. digest the full file and commit to an append-only store).
 
-**Retention:** No automatic purge. AInonymous treats retention as an operator responsibility, not a library concern — your legal/compliance requirements vary and an opinionated built-in would be wrong for many deployments. Schedule a cron job matching your policy (GDPR Art. 17, "right to erasure", typically 30-90 days for operational logs):
+**Retention:** No automatic purge. AInonymous treats retention as an operator responsibility, not a library concern. your legal/compliance requirements vary and an opinionated built-in would be wrong for many deployments. Schedule a cron job matching your policy (GDPR Art. 17, "right to erasure", typically 30-90 days for operational logs):
 
 ```bash
 # Daily purge, 90-day retention
@@ -87,7 +87,7 @@ For shorter retention, pair with hash-chain verification before deletion so tamp
 
 ## Session Key Rotation
 
-When `session.persist: true`, the SQLite store is encrypted under `AINONYMOUS_SESSION_KEY`. The current v1.0 flow is explicit and manual — no online rotation CLI:
+When `session.persist: true`, the SQLite store is encrypted under `AINONYMOUS_SESSION_KEY`. The current v1.0 flow is explicit and manual. no online rotation CLI:
 
 ```bash
 # 1. Drain in-flight traffic (route to a second instance or accept the partial outage)
@@ -109,7 +109,7 @@ ainonymous start
 #     docs/examples/rotate-session-key.mjs (ships with the repo).
 ```
 
-If an entry in the SQLite file cannot be decrypted after rotation (wrong key, tampering, truncated file), the proxy discards that row at load time with an aggregated `log.warn` — no silent data corruption, but mapping for the affected entry is lost.
+If an entry in the SQLite file cannot be decrypted after rotation (wrong key, tampering, truncated file), the proxy discards that row at load time with an aggregated `log.warn`. no silent data corruption, but mapping for the affected entry is lost.
 
 A first-class `ainonymous key rotate` command is tracked as a v1.2 candidate (see THREAT_MODEL.md).
 
@@ -133,7 +133,7 @@ ainonymous start
 curl -s http://127.0.0.1:8100/health
 ```
 
-Pseudonyms are not persisted across restarts by default. In-flight requests that started before the restart will hit a fresh session map and the rehydration for them will not find the original values. Treat a restart as a partial outage unless you have opted in to `session.persist: true` with a stable `AINONYMOUS_SESSION_KEY` — that combination keeps the AES-256-GCM SQLite store readable across processes.
+Pseudonyms are not persisted across restarts by default. In-flight requests that started before the restart will hit a fresh session map and the rehydration for them will not find the original values. Treat a restart as a partial outage unless you have opted in to `session.persist: true` with a stable `AINONYMOUS_SESSION_KEY`. that combination keeps the AES-256-GCM SQLite store readable across processes.
 
 ## Rollback
 
@@ -143,7 +143,7 @@ npm install -g ainonymous@<previous-version>
 ainonymous start
 ```
 
-Audit logs from the newer version are backward-compatible — the `seq` and `prevHash` fields are optional in the schema.
+Audit logs from the newer version are backward-compatible. the `seq` and `prevHash` fields are optional in the schema.
 
 ## Incident Response
 
@@ -161,7 +161,7 @@ Rotate the file, verify the chain, open an issue with the entry's `seq` and `typ
 1. Check liveness: `curl -sf http://127.0.0.1:8100/health` → if non-200, assume dead.
 2. Check for stuck upstream: default request timeout is 30 s. Upstream response size cap is 50 MB. Oversized responses are rejected with `upstream_error`.
 3. `journalctl -u ainonymous --since "5 min ago"` for the last error.
-4. Restart: `systemctl restart ainonymous` — in-flight sessions are lost.
+4. Restart: `systemctl restart ainonymous`. in-flight sessions are lost.
 
 ### Port conflict
 
@@ -179,7 +179,7 @@ All `502 upstream_error` responses from the proxy mean the upstream API (Anthrop
 
 ### Kubernetes
 
-The proxy's management endpoints (`/metrics`, `/metrics/json`, `/dashboard`, `/dashboard/app.js`, `/dashboard/app.css`, `/events`) accept a bearer token via `AINONYMOUS_MGMT_TOKEN` (env) or `behavior.mgmt_token` (config). Set one in any non-localhost deployment. The `NetworkPolicy` below is still recommended as defense-in-depth — no token is a substitute for network isolation.
+The proxy's management endpoints (`/metrics`, `/metrics/json`, `/dashboard`, `/dashboard/app.js`, `/dashboard/app.css`, `/events`) accept a bearer token via `AINONYMOUS_MGMT_TOKEN` (env) or `behavior.mgmt_token` (config). Set one in any non-localhost deployment. The `NetworkPolicy` below is still recommended as defense-in-depth. no token is a substitute for network isolation.
 
 ```yaml
 apiVersion: networking.k8s.io/v1

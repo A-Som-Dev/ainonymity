@@ -2,19 +2,75 @@
 
 All notable changes to AInonymous are documented here. The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-04-16
+
+Usability and real-world hardening after running the v1.1.3 scanner against nine internal repositories (Java/Spring, Kafka Connect, Python/FastAPI, React, Keycloak/MariaDB infra). The default is now optimized for LLM-readable output while keeping Layers 1+2 strict on secrets and PII.
+
+### Added
+
+- **`behavior.aggression`** config key with three modes (semantics shifted mid-v1.2. see Behavior Change below):
+  - `low`. identity + `domain_terms` compound/standalone replacement only. No AST identifier rewriting, no reverse-domain package-path rewrites. Closest to the pre-v1.2 medium.
+  - `medium` (default). full AST-driven class/interface/method/field/type obfuscation, keyword + framework-annotation safety net, reverse-domain package-path rewrite, case-cascaded PascalCase/camelCase stems, plus the low-mode domain-term replacement.
+  - `high`. medium plus formal-parameter pseudonymization. Phase 4 will add comment-scan for embedded domain terms.
+    `code.sensitive_paths` files always run in `high` regardless of the global setting.
+- **Code Obfuscator (v1.2 phases 1-3)**: new `src/ast/keywords.ts` with per-language keyword sets (Java, Kotlin, Python, TypeScript/JavaScript, Go, Rust, PHP, C#) and a `FRAMEWORK_ANNOTATIONS` set covering Spring, JPA, Lombok, Quarkus, Angular, NestJS, .NET, plus React-hook prefixes. Fixes a silent breakage where `package` → `Psi` in `aggression: high`, and brings cross-site consistency so `class FooService`, `FooService fooService`, and `import com.acme.FooService` all resolve to the same pseudo stem.
+- NER pass 3 catches first+last name pairs embedded in camelCase / PascalCase identifiers (`customerPeterMueller` → flagged, `dataHansMueller` with asciified lookup → flagged).
+- NER pass 4 detects standalone CJK, Korean, Japanese, Arabic, Hebrew, Cyrillic, Thai, and Devanagari name runs at lower confidence (0.55), previously only caught when preceded by `Author:` / `Kontakt:` / similar context markers.
+- `ainonymous scan` default output is a histogram + top-files summary; `--verbose` keeps the old raw-dump behaviour. Files with ≥100 findings get a tuning hint.
+- Auto-detect strips `(USER.NAME DOMAIN.TLD)`-style git author suffixes, collapses first-last/last-first duplicates, skips parent-POM BOM groupIds (spring-boot-starter-parent no longer ends up as the company name), derives `identity.domains` from Maven groupId when the git email is a noreply/free-provider address, and falls back to a `backend/` / `api/` subdir for language detection in monorepos.
+- `FRAMEWORK_STOPLIST` in auto-detect grew by ~50 entries (kafka, confluent, connector, debezium, testcontainers, keycloak, mariadb, opentelemetry, …). generic framework words no longer end up in `code.domain_terms`.
+
+### Behavior Change (BREAKING for config-pinned users)
+
+- `behavior.aggression` semantics shifted in the v1.2 cycle after real-world testing with ticket #4913228 (a Spring Boot repo). The old `medium` protected identity/secrets but leaked class, method, package, and type names to the upstream LLM. v1.2 medium now runs the full AST obfuscator by default. Migration paths:
+  - Users who want the pre-v1.2 medium behaviour back should set `behavior.aggression: low` explicitly.
+  - Users who already had `aggression: high` retain the strictest mode; parameters are now additionally pseudonymized.
+  - `ainonymous config migrate` prompts on upgrade when `aggression` is not explicitly set.
+
+### Changed
+
+- **Default `aggression` mode is `medium`**, now covering class/type/method/field obfuscation. not just compound domain-term rewrites as in the early-v1.2 iterations. Scans still favour readable output over false positives.
+- Credit-card pattern accepts space/dash/dot/slash/colon/underscore/pipe separators **and** no separator at all, paired with a Luhn post-filter. Previous regex missed bare 16-digit card numbers in JSON and missed dot-separated cards in CRM exports.
+- Phone pattern requires a country prefix (`+`, `00`) or a German mobile prefix (`015x` / `016x` / `017x`). Long digit sequences without any context no longer match. `UID 01234567890` used to fire as a phone hit.
+- OpenRedaction integration now drops `phone`, `credit-card`, `person-name`, `name`, and `heroku-api-key` by default (local regex + local NER are stricter). Country-specific ID types (`ssn`, `australian-medicare`, `canadian-sin`, `india-aadhaar`, 11 more) are disabled by default and re-enabled by the matching `behavior.compliance` preset (`hipaa` → `ssn`/`driving-license-us`/`passport-us`; `pci-dss` / `finance` → `credit-card`).
+- Code Layer's `preserve` list is now honored in **all four** replacement paths. `applyAstIdentifiers`, `applyCompoundDomainTerms`, `applyStandaloneDomainTerms`, and the cross-session rehydration loop. Previously it was only checked inside the AST identifier extraction, so a preserved compound could still be rewritten when any of its substrings matched a `domain_term`.
+- `applyStandaloneDomainTerms` now compiles a single combined regex across all eligible terms instead of iterating per term with a full `text.replace`. Scales linearly with text size, no longer per-term × text size.
+
+### Docs
+
+- README Quick Start adds `ainonymous scan` as step 2 and documents the three aggression modes.
+- `examples/before-after/` updated to reflect the medium-mode default.
+
+### Tests
+
+- `tests/unit/preserve-logic.test.ts`. regression coverage for all four code-layer replacement paths plus a non-preserve guard.
+- `tests/unit/auto-detect.test.ts`. author-parens stripping, first-last/last-first dedup, framework-stoplist filtering, Maven groupId parent fallback, monorepo language fallback.
+- NER tests cover camelCase-embedded names, non-latin context-prefix detection, standalone non-latin runs.
+
+### Migration (action required for existing v1.1.x users)
+
+Two behaviour shifts need an explicit decision before upgrading:
+
+1. **`aggression: medium` default is weaker than v1.1.x.** v1.1.x implicitly rewrote every AST identifier; v1.2 only rewrites compound identifiers containing a `domain_term`. If your threat model requires the old behaviour, set `behavior.aggression: high` explicitly, or mark sensitive files via `code.sensitive_paths` (those always run in `high` regardless of the global setting). Identity and secret detection are unchanged.
+2. **Compliance presets now re-enable jurisdiction-specific IDs that used to always drop.** A v1.1.x deployment with `compliance: hipaa` did not detect `ssn`, `driving-license-us`, or `passport-us` because those types were hard-disabled. v1.2 turns them back on for HIPAA/CCPA and turns `credit-card` back on for PCI-DSS/finance. If you relied on the old no-detection behaviour for internal reasons, add a custom filter or drop the `compliance:` key. Preset names are now matched case-insensitively (`HIPAA` and `hipaa` both work).
+3. **Add `ainonymous audit pending` to existing workflows** to surface pseudonyms the LLM ignored or renamed. useful when the bidirectional map silently carries stale entries across long sessions.
+
 ## [1.1.3] - 2026-04-16
 
 Security and backward-compat patch.
 
 ### Security
+
 - `AINONYMOUS_MGMT_TOKEN` in environment is now length-checked. The proxy refuses to start when the env token is shorter than 16 characters, matching the policy already enforced on `behavior.mgmt_token` in config. Previously the env value bypassed the length check and a single-character token was accepted, leaving management endpoints brute-forceable on a non-local bind.
 
 ### Changed (backward-compat)
+
 - `loadConfig` logs a warning when `.ainonymity.yml` (legacy filename) is present but `.ainonymous.yml` is missing. The legacy file is not loaded; behaviour matches the previous "no config found" path but the warning makes the silent default obvious after upgrading.
 - `// @ainonymity:redact` annotations in source code are now honored with a deprecation warning in addition to the new `// @ainonymous:redact`. Without this, existing user codebases would have silently lost body-redaction after the rebrand.
 - `.gitignore` extended with the legacy `ainonymity-audit/`, `ainonymity-session.db*` paths so upgraded checkouts don't accidentally commit pre-1.1.0 on-disk artefacts.
 
 ### Tests
+
 - New assertion in the upstream error-body integration test: verifies that identity values (`Artur Sommer`, `Acme Corp`) and secrets (`hunter2secretpass`) never reach the upstream request body, not just that the client-side `***REDACTED***` marker is preserved.
 - `examples/before-after/output.md` no longer claims `Partner` as pseudonymized (the demo input never contains it).
 
@@ -23,6 +79,7 @@ Security and backward-compat patch.
 Documentation-only patch. No runtime changes. Fixes version-staleness across docs after the v1.1.x rebrand series.
 
 ### Changed
+
 - `CHANGELOG.md` now covers the 1.0.x and 1.1.x release trail.
 - `README.md`, `OPERATIONS.md`, `SECURITY.md`, `THREAT_MODEL.md` reference the current version where previously pinned to `1.0.0`.
 - `legal/DPA-template.md` TOM description acknowledges the opt-in `session.persist: true` mode (SQLite-backed AES-256-GCM store), instead of claiming that no persistence exists.
@@ -33,6 +90,7 @@ Documentation-only patch. No runtime changes. Fixes version-staleness across doc
 Branding-consistency patch. No behavior change.
 
 ### Changed
+
 - Renamed internal identifiers that the earlier rebrand pass missed: `AInonymityConfig` TypeScript type is now `AInonymousConfig`, Prometheus metric names are now `ainonymous_*` (previously `ainonymity_*`), `src/index.ts` re-exports are aligned.
 
 ## [1.1.0] - 2026-04-16
@@ -40,6 +98,7 @@ Branding-consistency patch. No behavior change.
 **Breaking: renamed from `ainonymity` to `ainonymous`.** All user-facing identifiers changed: npm package name, CLI binary, config filename, environment variables, token / session DB / audit paths, HTTP realm, brand string. Earlier `ainonymity@*` publishes have been unpublished; the npm name is permanently retired.
 
 ### Changed
+
 - npm package: `ainonymity` → `ainonymous`.
 - CLI binary: `ainonymity` → `ainonymous`.
 - Config filename: `.ainonymity.yml` → `.ainonymous.yml`.
@@ -52,6 +111,7 @@ Branding-consistency patch. No behavior change.
 - Demo data in `examples/before-after/` and `tests/integration/proxy-e2e.test.ts` is now fictional (`Acme Corp`, `CustomerDB`, `Kay Example`) instead of identifying a specific third party.
 
 ### Migration
+
 - Rename `.ainonymity.yml` to `.ainonymous.yml` (same schema, no content change required).
 - Rename any `AINONYMITY_*` environment variables in your deployment manifests to `AINONYMOUS_*`.
 - Rename `@ainonymity:redact` source-code annotations to `@ainonymous:redact`.
@@ -64,6 +124,7 @@ Branding-consistency patch. No behavior change.
 Initial public release.
 
 ### Added
+
 - Three-layer anonymization pipeline (secrets, identity, code semantics).
 - Local HTTP proxy with SSE-aware rehydration for Anthropic and OpenAI API formats.
 - AST-based identifier extraction via Tree-sitter WASM for TypeScript, JavaScript, Java, Kotlin, Python, PHP, Go, Rust, and C#.
@@ -79,6 +140,7 @@ Initial public release.
 - Signed releases via Sigstore keyless signing and npm provenance.
 
 ### Known limitations
+
 - Unicode confusables (e.g. Cyrillic `а` vs Latin `a`) are not unified. Tracked as v1.2 item.
 - Audit log chain is SHA-256, not HMAC. Tamper-evident against external readers; an insider with write access to the audit directory can forge the tail.
 - Session map is unbounded (no LRU / TTL).

@@ -1,4 +1,4 @@
-# Output — what the LLM actually sees
+# Output. what the LLM actually sees
 
 Input: `input.md` (source prompt with secrets, domains, identifiers)
 Config: see `gen.mjs` (company Acme Corp, domains acme-corp.com/acme-corp.local, people Artur Sommer)
@@ -48,7 +48,7 @@ The Eta is Theta Alpha, Iota him at user1@company-alpha.de.
 - `Customer` → pseudonymized (domain term, triggered the compound rewrite of `CustomerBillingService`)
 - Spring framework identifiers (`@Service`, `CustomerRepository` type annotation) preserved where they appear
 
-Rehydration would reverse all pseudonyms when the response comes back through the proxy. The `***REDACTED***` marker stays forever — secrets are never restored.
+Rehydration would reverse all pseudonyms when the response comes back through the proxy. The `***REDACTED***` marker stays forever. secrets are never restored.
 
 ## Reproduce
 

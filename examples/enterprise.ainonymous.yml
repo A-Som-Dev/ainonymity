@@ -54,7 +54,7 @@ code:
 
   # Glob patterns for files requiring extra-aggressive anonymization.
   # All identifiers will be anonymized, not just domain terms.
-  # Note: applies only during `ainonymous scan` — the live proxy has no file context.
+  # Note: applies only during `ainonymous scan`. the live proxy has no file context.
   sensitive_paths:
     - .env
     - .env.*

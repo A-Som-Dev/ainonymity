@@ -21,14 +21,14 @@ make test
 
 - TypeScript strict mode
 - No frameworks for HTTP (`node:http` only) or dashboard (vanilla HTML)
-- Meaningful variable names — no single-letter variables outside loops
-- No unnecessary comments — code should be self-documenting
+- Meaningful variable names. no single-letter variables outside loops
+- No unnecessary comments. code should be self-documenting
 - Performance target: p95 < 200 ms per request for typical payloads (<5 KB). See [BENCHMARKS.md](BENCHMARKS.md) for measured p50/p95.
 
 ## Architecture Rules
 
 - The 3-layer pipeline (Secrets → Identity → Code) processes in strict order
-- Secrets are never rehydrated — `***REDACTED***` is permanent
+- Secrets are never rehydrated. `***REDACTED***` is permanent
 - The reverse session map is AES-256-GCM encrypted in-process (raises the bar for heap dumps, not a substitute for process isolation); the forward map uses SHA-256 hashed keys
 - Domain-aware pseudonymization: structural parts preserved, domain parts replaced
 

@@ -7,13 +7,14 @@ What a realistic prompt looks like before AInonymous and what the LLM actually s
 | Language | Before | After | What it shows |
 |---|---|---|---|
 | Java (Spring Boot) | [`input.md`](input.md) | [`output.md`](output.md) | Service class, reverse-domain package path, domain term "Customer", person in comment, hardcoded DB password |
+| Java (Spring Boot v1.2 Code-Obfuscator) | [`spring-boot-service-before.java`](spring-boot-service-before.java) | [`spring-boot-service-after.java`](spring-boot-service-after.java) | Medium-mode default on a realistic service class: class/type pseudonymization, reverse-domain package rewrite, `@Service`/`@Slf4j`/`@RequiredArgsConstructor` preserved, JavaBean getters (`getIduser`, `getIdproject`) preserved, compound camelCase (`subscriberId` → `muKappa`) synced to PascalCase, comment mention rewritten via session map |
 | Python (Django + DRF) | [`django-view-before.py`](django-view-before.py) | [`django-view-after.py`](django-view-after.py) | ViewSet, internal runbook URL, legal/ops mail aliases, `CUSTOMERDB_API_KEY` secret in settings reference, legacy view with bearer token in query string |
 | Go (chi + pgx) | [`go-http-handler-before.go`](go-http-handler-before.go) | [`go-http-handler-after.go`](go-http-handler-after.go) | `package`/import paths on an internal GitLab host, Postgres DSN with inline password, oncall runbook, slog fields leaking actor and partner IDs |
 
 ## How to read the files
 
-- `*-before.*` — what you'd paste into Claude/Cursor/etc.
-- `*-after.*` — what the proxy forwards to the upstream LLM after the three layers (Secrets → Identity → Code) have run.
+- `*-before.*`. what you'd paste into Claude/Cursor/etc.
+- `*-after.*`. what the proxy forwards to the upstream LLM after the three layers (Secrets → Identity → Code) have run.
 
 The Java demo is generated deterministically from `input.md` via `gen.mjs` (seeded Greek-alphabet pseudonyms). The Python and Go demos are hand-curated reference outputs that use the same Greek scheme so cross-file pseudonyms stay consistent with what the pipeline would produce for a similar session.
 
@@ -34,7 +35,7 @@ ainonymous start --config ./examples/enterprise.ainonymous.yml
 # the proxy will forward the anonymized version, which should closely match the *-after.* file
 ```
 
-Exact pseudonyms will differ from the checked-in `-after` files (pseudonym numbering depends on the order identifiers appear in a given session), but the *shape* of the anonymization — which tokens get replaced, which stay, and which get redacted — should match.
+Exact pseudonyms will differ from the checked-in `-after` files (pseudonym numbering depends on the order identifiers appear in a given session), but the *shape* of the anonymization. which tokens get replaced, which stay, and which get redacted. should match.
 
 ## Layer coverage across all three demos
 
@@ -47,4 +48,4 @@ Exact pseudonyms will differ from the checked-in `-after` files (pseudonym numbe
 | `10.42.0.17` | 2 Identity | IPv4 pattern → `10.0.x.y` slot |
 | `com.acmecorp.customerdb.*`, `gitlab.acme-corp.local/platform/...` | 3 Code | Reverse-domain + path segments anonymized; TLD preserved |
 | `CustomerBillingService`, `AcmeCustomerLoyaltyViewSet`, `PartnerContactView` | 3 Code | Domain terms (`Customer`, `Partner`, ...) trigger compound pseudonymization; `Service`/`ViewSet`/`View` suffixes preserved |
-| `CustomerLoyalty`, `PartnerAgreement` model names | 3 Code | Same — domain term is the trigger; structural word stays |
+| `CustomerLoyalty`, `PartnerAgreement` model names | 3 Code | Same. domain term is the trigger; structural word stays |

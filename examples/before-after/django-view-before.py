@@ -21,7 +21,7 @@ from apps.notifications.clients import SlackClient, MailClient
 
 log = logging.getLogger("acme.loyalty")
 
-# prod DB replica, read-only — see infra/terraform/rds-replica.tf
+# prod DB replica, read-only. see infra/terraform/rds-replica.tf
 REPLICA_HOST = "db-replica.prod.acme.de"
 REPLICA_IP = "10.42.0.17"
 
@@ -42,7 +42,7 @@ class AcmeCustomerLoyaltyViewSet(ModelViewSet):
         # kay from partners team asked us to notify ops when a Platinum tier is created
         if request.data.get("tier") == "platinum":
             SlackClient(webhook=settings.SLACK_OPS_WEBHOOK).post(
-                f"New platinum customer via {partner.name} — approve at "
+                f"New platinum customer via {partner.name}. approve at "
                 f"https://loyalty.acme.internal/approvals"
             )
             MailClient().send(
@@ -66,7 +66,7 @@ class AcmeCustomerLoyaltyViewSet(ModelViewSet):
 
 
 class PartnerContactView(ModelViewSet):
-    """Legacy view — CustomerDB contact sync. To be removed once migration #284 lands."""
+    """Legacy view. CustomerDB contact sync. To be removed once migration #284 lands."""
 
     def list(self, request):
         token = settings.CUSTOMERDB_API_KEY  # CUSTOMERDB_API_KEY=cdb_live_0000000000
