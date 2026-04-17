@@ -14,7 +14,7 @@ describe('secret patterns', () => {
 
   it('detects JWT tokens', () => {
     const hits = matchSecrets(
-      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U', // ainonymous:allow
     );
     expect(hits).toContainEqual(expect.objectContaining({ type: 'jwt' }));
   });
@@ -26,7 +26,7 @@ describe('secret patterns', () => {
 
   it('detects private keys', () => {
     const hits = matchSecrets(
-      '-----BEGIN RSA PRIVATE KEY-----\nMIIEpA...\n-----END RSA PRIVATE KEY-----',
+      '-----BEGIN RSA PRIVATE KEY-----\nMIIEpA...\n-----END RSA PRIVATE KEY-----', // ainonymous:allow
     );
     expect(hits).toContainEqual(expect.objectContaining({ type: 'private-key' }));
   });

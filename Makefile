@@ -1,4 +1,4 @@
-.PHONY: build dev test lint check format clean start scan init audit audit-full sbom licenses install-hooks scan-staged scan-branch
+.PHONY: build dev test lint check format clean start scan init audit audit-full sbom licenses install-hooks scan-staged scan-branch scan-all
 
 build:
 	npx tsc
@@ -70,3 +70,6 @@ scan-staged:
 
 scan-branch:
 	node scripts/scan-diff-for-secrets.mjs --range origin/master..HEAD
+
+scan-all:
+	node scripts/scan-diff-for-secrets.mjs --tree

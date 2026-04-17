@@ -138,7 +138,7 @@ describe('QA: Text der NUR Secrets enthält', () => {
 
   it('markiert JWT-Token als REDACTED', async () => {
     const jwt =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'; // ainonymous:allow
     const result = await pipeline.anonymize(`token: ${jwt}`);
     expect(result.text).not.toContain('eyJhbGciOiJIUzI1NiI');
     expect(result.text).toContain('***REDACTED***');

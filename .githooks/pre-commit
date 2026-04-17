@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Local enforcement gate. blocks commits that would leak secrets, real
+# emails, IBANs, phone numbers or any term from `.ainonymity-denylist.local`.
+# Install with: make install-hooks
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCANNER="$REPO_ROOT/scripts/scan-diff-for-secrets.mjs"
+
+if [ ! -f "$SCANNER" ]; then
+  echo "pre-commit: scanner script missing at $SCANNER" >&2
+  exit 1
+fi
+
+node "$SCANNER" --staged

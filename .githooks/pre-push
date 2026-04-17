@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Final gate before pushing. Reads ref updates from stdin and scans every
+# commit that would enter the remote. Blocks the push if any finding is
+# detected. Install with: make install-hooks
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCANNER="$REPO_ROOT/scripts/scan-diff-for-secrets.mjs"
+ZERO=$(printf '0%.0s' {1..40})
+
+if [ ! -f "$SCANNER" ]; then
+  echo "pre-push: scanner script missing at $SCANNER" >&2
+  exit 1
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "$ZERO" ]; then
+    continue
+  fi
+  if [ "$remote_sha" = "$ZERO" ]; then
+    range="$local_sha"
+    merge_base=$(git rev-list --max-parents=0 "$local_sha" | tail -n1)
+    range="$merge_base..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  node "$SCANNER" --range "$range"
+done
