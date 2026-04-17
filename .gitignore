@@ -20,9 +20,10 @@ ainonymous-audit/
 ainonymous-session.db
 ainonymous-session.db-shm
 ainonymous-session.db-wal
+.ainonymous.yml.backup-*
+.ainonymous.yml.migrated
 
-# legacy pre-1.1.0 paths, kept so an upgraded checkout doesn't accidentally commit old artifacts
-ainonymity-audit/
-ainonymity-session.db
-ainonymity-session.db-shm
-ainonymity-session.db-wal
+.playwright-mcp/
+dashboard-*.png
+
+.ainonymity-denylist.local
