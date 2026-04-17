@@ -1,10 +1,21 @@
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import type { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import { createProxyServer } from '../proxy/server.js';
 import { listenWithFallback } from './listen-with-fallback.js';
 import { getTokenPath, ensureTokenDir, hardenTokenFileAcl } from './token-path.js';
 import { log } from '../logger.js';
+
+async function openInBrowser(url: string): Promise<void> {
+  const platform = process.platform;
+  const cmd =
+    platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open';
+  const args = platform === 'win32' ? ['/c', 'start', '""', url] : [url];
+  const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+  child.unref();
+}
 
 function bindStrict(server: ReturnType<typeof createProxyServer>, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -34,10 +45,20 @@ export function registerStartCmd(program: Command): void {
     .description('Start the anonymizing proxy server')
     .option('-p, --port <number>', 'port to listen on')
     .option('-d, --dir <path>', 'project directory', process.cwd())
-    .action(async (opts: { port?: string; dir: string }) => {
+    .option('--open', 'open the dashboard in the default browser after start')
+    .action(async (opts: { port?: string; dir: string; open?: boolean }) => {
       const config = loadConfig(opts.dir);
       const explicit = opts.port != null;
       const preferredPort = explicit ? parseInt(opts.port!, 10) : config.behavior.port;
+
+      // Mint a mgmt token if the user didn't configure one. Without it any
+      // local process can subscribe to the SSE stream and scrape pseudonym
+      // pairs off loopback.
+      const envMgmt = process.env['AINONYMOUS_MGMT_TOKEN']?.trim();
+      const preConfigured = !!envMgmt || !!config.behavior.mgmtToken;
+      if (!preConfigured) {
+        config.behavior.mgmtToken = randomBytes(24).toString('hex');
+      }
       const server = createProxyServer({ config });
 
       try {
@@ -49,24 +70,56 @@ export function registerStartCmd(program: Command): void {
               process.env['AINONYMOUS_HOST'] ?? '127.0.0.1',
             );
 
+        // Silent port-fallback when the configured port is taken is an MITM
+        // risk: an attacker who binds :8100 first sees the client traffic
+        // while the proxy quietly runs on :8101 and the user believes the
+        // proxy is up. Refuse to silently reroute when the port moved.
+        if (!explicit && actualPort !== preferredPort) {
+          console.error(
+            `Port ${preferredPort} is in use; another process already owns it. ` +
+              `Refusing to silently bind ${actualPort}. that would let the occupant of ${preferredPort} MITM your LLM traffic. ` +
+              `Stop the occupant, or start with --port <n> to opt into a different port explicitly.`,
+          );
+          await new Promise<void>((r) => server.close(() => r()));
+          process.exit(2);
+        }
+
         const tokenFile = getTokenPath(actualPort);
         ensureTokenDir(tokenFile);
         writeFileSync(tokenFile, server.shutdownToken, { encoding: 'utf-8', mode: 0o600 });
         hardenTokenFileAcl(tokenFile);
+
+        // Persist the mgmt token next to the shutdown token so the user can
+        // read it for curl/dashboard access. Only written when we auto-gen'd
+        // it. if the user set env or config, they already manage the token
+        // themselves and we don't want to overwrite their file on disk.
+        const mgmtTokenFile = tokenFile.replace(/\.token$/, '.mgmt.token');
+        if (!preConfigured && config.behavior.mgmtToken) {
+          writeFileSync(mgmtTokenFile, config.behavior.mgmtToken, {
+            encoding: 'utf-8',
+            mode: 0o600,
+          });
+          hardenTokenFileAcl(mgmtTokenFile);
+        }
+
         const url = `http://127.0.0.1:${actualPort}`;
+        const dashTokenParam = config.behavior.mgmtToken
+          ? `?token=${config.behavior.mgmtToken}`
+          : '';
+        const dashboardUrl = `${url}/dashboard${dashTokenParam}`;
         console.log(`AInonymous proxy running on ${url}`);
+        console.log(`Dashboard: ${dashboardUrl}`);
         console.log(
           `Set ANTHROPIC_BASE_URL=${url} or OPENAI_BASE_URL=${url} to route requests through the proxy`,
         );
+        if (!preConfigured && config.behavior.mgmtToken) {
+          console.log(`Auto-generated mgmt token saved to ${mgmtTokenFile}`);
+        }
 
-        const host = process.env['AINONYMOUS_HOST'] ?? '127.0.0.1';
-        const envToken = process.env['AINONYMOUS_MGMT_TOKEN']?.trim();
-        const hasToken = (envToken && envToken.length > 0) || !!config.behavior.mgmtToken;
-        if (host === '0.0.0.0' && !hasToken) {
-          console.warn(
-            `Warning: Management endpoints (/metrics, /dashboard, /events) are exposed on ${host} without authentication. Set AINONYMOUS_MGMT_TOKEN or behavior.mgmt_token in config.`,
-          );
-          log.warn('management_endpoints_unauthenticated', { host, reason: 'no_token_set' });
+        if (opts.open && config.behavior.dashboard !== false) {
+          openInBrowser(dashboardUrl).catch((err) => {
+            log.warn('dashboard_open_failed', { err: String(err) });
+          });
         }
       } catch (err) {
         const e = err as NodeJS.ErrnoException;

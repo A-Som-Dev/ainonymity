@@ -7,6 +7,8 @@ import { registerScanCmd } from './cmd-scan.js';
 import { registerGlossaryCmd } from './cmd-glossary.js';
 import { registerHooksCmd } from './cmd-hooks.js';
 import { registerAuditCmd } from './cmd-audit.js';
+import { registerDoctorCmd } from './cmd-doctor.js';
+import { registerConfigCmd } from './cmd-config.js';
 import { runWrapped } from './wrapper.js';
 
 const program = new Command();
@@ -21,6 +23,8 @@ registerScanCmd(program);
 registerGlossaryCmd(program);
 registerHooksCmd(program);
 registerAuditCmd(program);
+registerDoctorCmd(program);
+registerConfigCmd(program);
 
 const dashIdx = process.argv.indexOf('--');
 if (dashIdx !== -1 && dashIdx > 1) {

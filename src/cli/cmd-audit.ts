@@ -71,6 +71,48 @@ export function registerAuditCmd(program: Command): void {
     });
 
   audit
+    .command('pending')
+    .description('Show anonymized originals the LLM never referenced in its response')
+    .option('--dir <path>', 'audit log directory', './ainonymous-audit')
+    .action((opts: { dir: string }) => {
+      const dir = resolve(opts.dir);
+      const entries = readAllEntries(dir);
+
+      if (entries.length === 0) {
+        console.log(`No audit logs found in ${dir}`);
+        return;
+      }
+
+      const anonymized = new Map<string, AuditEntry>();
+      const rehydrated = new Set<string>();
+      for (const e of entries) {
+        if (e.layer === 'rehydration') {
+          rehydrated.add(e.originalHash);
+        } else if (!anonymized.has(e.originalHash)) {
+          anonymized.set(e.originalHash, e);
+        }
+      }
+
+      const pending: AuditEntry[] = [];
+      for (const [hash, entry] of anonymized) {
+        if (!rehydrated.has(hash)) pending.push(entry);
+      }
+
+      if (pending.length === 0) {
+        console.log('No pending pseudonyms. All anonymized originals were rehydrated.');
+        return;
+      }
+
+      pending.sort((a, b) => a.timestamp - b.timestamp);
+      for (const e of pending) {
+        console.log(formatEntry(e));
+      }
+      console.log(
+        `\n${pending.length} pending of ${anonymized.size} anonymized (${rehydrated.size} rehydrated)`,
+      );
+    });
+
+  audit
     .command('export')
     .description('Export all audit logs as consolidated JSON')
     .option('--dir <path>', 'audit log directory', './ainonymous-audit')
