@@ -92,6 +92,7 @@ export interface UpstreamConfig {
 }
 
 export type AggressionMode = 'low' | 'medium' | 'high';
+export type AuditFailureMode = 'block' | 'permit';
 
 export interface BehaviorConfig {
   interactive: boolean;
@@ -109,6 +110,7 @@ export interface BehaviorConfig {
    *  - medium (default): low + compound identifiers that contain a domain_term substring
    *  - high: all AST identifiers not in preserve */
   aggression: AggressionMode;
+  auditFailure: AuditFailureMode;
 }
 
 export interface AuditEntry {

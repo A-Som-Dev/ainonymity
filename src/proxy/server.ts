@@ -90,7 +90,7 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
 
   if (opts.config.behavior.auditLog) {
     const dir = opts.config.behavior.auditDir || './ainonymous-audit';
-    auditLogger.enablePersistence(dir);
+    auditLogger.enablePersistence(dir, opts.config.behavior.auditFailure);
   }
 
   const pipeline = opts.pipeline ?? new Pipeline(opts.config, auditLogger);
@@ -163,14 +163,16 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
         (chunk) => pipeline.rehydrate(chunk, { allowedPseudonyms: usedPseudos }),
       );
     } catch (err) {
+      const isAuditFail = err instanceof Error && err.name === 'AuditPersistError';
       log.error('proxy request failed', {
         path,
         err: err instanceof Error ? err.message : String(err),
+        auditFail: isAuditFail,
       });
       if (!res.headersSent) {
-        res.writeHead(500, { 'content-type': 'application/json' });
+        res.writeHead(isAuditFail ? 503 : 500, { 'content-type': 'application/json' });
       }
-      res.end(JSON.stringify({ error: 'proxy_error' }));
+      res.end(JSON.stringify({ error: isAuditFail ? 'audit_persist_failed' : 'proxy_error' }));
     }
   }
 

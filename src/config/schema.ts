@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: AInonymousConfig = {
     },
     mgmtToken: undefined,
     aggression: 'medium',
+    auditFailure: 'permit',
   },
   session: {
     persist: false,

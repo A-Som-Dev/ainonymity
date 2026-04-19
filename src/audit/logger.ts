@@ -22,11 +22,24 @@ function chainHash(prev: string, entry: Omit<AuditEntry, 'prevHash'>): string {
   return createHash('sha256').update(prev).update(serialized).digest('hex');
 }
 
+export type AuditFailureMode = 'block' | 'permit';
+
+export class AuditPersistError extends Error {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'AuditPersistError';
+  }
+}
+
 export class AuditLogger {
   private records: AuditEntry[] = [];
   private persistDir: string | null = null;
   private seq = 0;
   private lastHash = '';
+  private failureMode: AuditFailureMode = 'permit';
 
   log(r: Replacement): void {
     // pseudonyms are intentionally NOT persisted - reidentification via session map
@@ -106,9 +119,10 @@ export class AuditLogger {
     writeFileSync(filePath, JSON.stringify(this.records, null, 2), 'utf-8');
   }
 
-  enablePersistence(dir: string): void {
+  enablePersistence(dir: string, failureMode: AuditFailureMode = 'permit'): void {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     this.persistDir = dir;
+    this.failureMode = failureMode;
   }
 
   query(opts: { from?: number; to?: number; layer?: AuditLayer; type?: string }): AuditEntry[] {
@@ -123,12 +137,22 @@ export class AuditLogger {
 
   private persistEntry(entry: AuditEntry): void {
     if (!this.persistDir) return;
-    const filepath = this.currentFile();
-    appendFileSync(filepath, JSON.stringify(entry) + '\n', 'utf-8');
-    // Sidecar checkpoint. verifyAuditChain uses it to detect tail-truncation:
-    // the hash chain alone stays internally consistent after any suffix is cut.
-    const ckpt = filepath + '.checkpoint';
-    writeFileSync(ckpt, JSON.stringify({ lastSeq: entry.seq, lastHash: this.lastHash }), 'utf-8');
+    try {
+      const filepath = this.currentFile();
+      appendFileSync(filepath, JSON.stringify(entry) + '\n', 'utf-8');
+      const ckpt = filepath + '.checkpoint';
+      writeFileSync(ckpt, JSON.stringify({ lastSeq: entry.seq, lastHash: this.lastHash }), 'utf-8');
+    } catch (err) {
+      if (this.failureMode === 'block') {
+        throw new AuditPersistError(
+          `audit persist failed: ${err instanceof Error ? err.message : String(err)}`,
+          err,
+        );
+      }
+      console.error(
+        `WARNING: audit persist failed (${err instanceof Error ? err.message : String(err)}) - request continuing under auditFailure=permit`,
+      );
+    }
   }
 
   private currentFile(): string {

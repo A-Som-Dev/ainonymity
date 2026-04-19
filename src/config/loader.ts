@@ -157,16 +157,26 @@ function mapBehaviorConfig(defaults: BehaviorConfig, raw: Record<string, unknown
       ? raw.aggression
       : defaults.aggression;
 
+  const compliance = typeof raw.compliance === 'string' ? raw.compliance : defaults.compliance;
+  const STRICT_PRESETS = new Set(['gdpr', 'hipaa', 'pci-dss']);
+  const auditFailureDefault =
+    compliance && STRICT_PRESETS.has(compliance) ? 'block' : defaults.auditFailure;
+  const auditFailure =
+    raw.audit_failure === 'block' || raw.audit_failure === 'permit'
+      ? raw.audit_failure
+      : auditFailureDefault;
+
   return {
     interactive: typeof raw.interactive === 'boolean' ? raw.interactive : defaults.interactive,
     auditLog: typeof raw.audit_log === 'boolean' ? raw.audit_log : defaults.auditLog,
     auditDir: typeof raw.audit_dir === 'string' ? raw.audit_dir : defaults.auditDir,
     dashboard: typeof raw.dashboard === 'boolean' ? raw.dashboard : defaults.dashboard,
     port: typeof raw.port === 'number' ? raw.port : defaults.port,
-    compliance: typeof raw.compliance === 'string' ? raw.compliance : defaults.compliance,
+    compliance,
     upstream,
     mgmtToken: typeof raw.mgmt_token === 'string' ? raw.mgmt_token : defaults.mgmtToken,
     aggression,
+    auditFailure,
   };
 }
 

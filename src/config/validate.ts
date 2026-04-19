@@ -11,6 +11,7 @@ const KNOWN_BEHAVIOR_KEYS = new Set([
   'upstream',
   'mgmt_token',
   'aggression',
+  'audit_failure',
 ]);
 const KNOWN_CODE_KEYS = new Set([
   'language',
