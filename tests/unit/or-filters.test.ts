@@ -32,12 +32,12 @@ describe('OR post-filter pipeline', () => {
 
   it('keeps credit-card only under pci-dss / finance preset', () => {
     expect(runFilters(DEFAULT_OR_FILTERS, [hit('credit-card')], { preset: '' })).toHaveLength(0);
-    expect(runFilters(DEFAULT_OR_FILTERS, [hit('credit-card')], { preset: 'pci-dss' })).toHaveLength(
-      1,
-    );
-    expect(runFilters(DEFAULT_OR_FILTERS, [hit('credit-card')], { preset: 'finance' })).toHaveLength(
-      1,
-    );
+    expect(
+      runFilters(DEFAULT_OR_FILTERS, [hit('credit-card')], { preset: 'pci-dss' }),
+    ).toHaveLength(1);
+    expect(
+      runFilters(DEFAULT_OR_FILTERS, [hit('credit-card')], { preset: 'finance' }),
+    ).toHaveLength(1);
   });
 
   it('keeps unrelated types through unchanged', () => {

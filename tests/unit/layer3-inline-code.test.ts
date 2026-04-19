@@ -33,7 +33,8 @@ describe('Layer 3 inline-backtick zones', () => {
     // The user quotes a class name inline. this was leaking in the hardcore
     // E2E (LineTerminationCompleted). The token must be extracted and mapped
     // the same way as fenced code.
-    const text = 'Wir triggern die Camunda-Correlation fuer `LineTerminationCompleted` im Consumer.';
+    const text =
+      'Wir triggern die Camunda-Correlation fuer `LineTerminationCompleted` im Consumer.';
     const result = await layer.processAsync(text, ctx());
 
     expect(result.text).not.toContain('LineTerminationCompleted');

@@ -116,7 +116,7 @@ describe('PII patterns enhanced (OpenRedaction)', () => {
   });
 
   it('does not match card-like digits embedded in URL paths', async () => {
-    // Luhn-valid 16-digit subsequence hiding in a path must NOT match 
+    // Luhn-valid 16-digit subsequence hiding in a path must NOT match
     // otherwise every log line with a numeric URL triggers a CC hit.
     const hits = await matchPIIEnhanced('GET /api/4532/0151/1283/0366/profile');
     expect(hits.filter((h) => h.type === 'credit-card')).toHaveLength(0);

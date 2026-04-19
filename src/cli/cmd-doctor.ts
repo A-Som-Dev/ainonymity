@@ -90,7 +90,8 @@ function checkConfigFile(dir: string): Check {
 
 function checkConfigIdentity(dir: string): Check {
   const p = join(dir, '.ainonymous.yml');
-  if (!existsSync(p)) return { label: 'identity coverage', status: 'warn', detail: 'no config yet' };
+  if (!existsSync(p))
+    return { label: 'identity coverage', status: 'warn', detail: 'no config yet' };
   try {
     const raw = yaml.load(readFileSync(p, 'utf-8')) as Record<string, unknown>;
     const identity = (raw?.identity ?? {}) as Record<string, unknown>;

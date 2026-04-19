@@ -1,5 +1,5 @@
 // Greek alphabet minus the four two-character names (Mu, Nu, Xi, Pi). A
-// two-character pseudonym is a substring of common English/German words 
+// two-character pseudonym is a substring of common English/German words
 // `nu` inside `null`, `pi` inside `pipe`, `xi` inside `exit`, `mu` inside
 // `multi`. The rehydrate pass does a plain-string replaceAll, so a two-char
 // pseudo will rewrite any literal in the LLM response that happens to

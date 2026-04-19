@@ -239,13 +239,10 @@ export class CodeLayer implements Layer {
           /\b(?:class|interface|struct|enum|function|def|fn|func|package|public|private|protected|return|if|for|while)\b/.test(
             result,
           ));
-      const sources =
-        fenceSources.length > 0 ? fenceSources : looksLikeCode ? [result] : [];
+      const sources = fenceSources.length > 0 ? fenceSources : looksLikeCode ? [result] : [];
       const ids = (
         await Promise.all(
-          sources.map((src) =>
-            extractIdentifiers(src, lang, ctx.config.code.preserve, { mode }),
-          ),
+          sources.map((src) => extractIdentifiers(src, lang, ctx.config.code.preserve, { mode })),
         )
       ).flat();
 

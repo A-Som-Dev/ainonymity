@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { matchSecrets } from '../../src/patterns/secrets.js';
 
-describe("credential-keyname pattern", () => {
+describe('credential-keyname pattern', () => {
   it('matches ENV-variable-name references in prose without assignment', () => {
-    const text = 'Das Passwort steht in KAFKA_SASL_PASSWORD und die DB lesen wir aus ACME_DB_PASSWORD.';
+    const text =
+      'Das Passwort steht in KAFKA_SASL_PASSWORD und die DB lesen wir aus ACME_DB_PASSWORD.';
     const hits = matchSecrets(text);
     const names = hits.map((h) => h.match);
     expect(names).toContain('KAFKA_SASL_PASSWORD');
@@ -11,10 +12,22 @@ describe("credential-keyname pattern", () => {
   });
 
   it('matches all common suffixes', () => {
-    for (const suffix of ['PASSWORD', 'PW', 'SECRET', 'TOKEN', 'KEY', 'APIKEY', 'CRED', 'CREDENTIAL']) {
+    for (const suffix of [
+      'PASSWORD',
+      'PW',
+      'SECRET',
+      'TOKEN',
+      'KEY',
+      'APIKEY',
+      'CRED',
+      'CREDENTIAL',
+    ]) {
       const name = `SERVICE_${suffix}`;
       const hits = matchSecrets(`check ${name} now`);
-      expect(hits.some((h) => h.match === name), `did not flag ${name}`).toBe(true);
+      expect(
+        hits.some((h) => h.match === name),
+        `did not flag ${name}`,
+      ).toBe(true);
     }
   });
 

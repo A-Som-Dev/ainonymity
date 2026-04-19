@@ -3,7 +3,7 @@ import { Pipeline } from '../../src/pipeline/pipeline.js';
 import { getDefaults } from '../../src/config/loader.js';
 import { initParser } from '../../src/ast/extractor.js';
 
-describe("Ticket-ID pseudonymization", () => {
+describe('Ticket-ID pseudonymization', () => {
   beforeAll(async () => {
     await initParser();
   });

@@ -107,9 +107,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'credential-constant'), `missed: ${s}`).toBe(
-        true,
-      );
+      expect(
+        hits.some((h) => h.type === 'credential-constant'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -121,7 +122,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'compose-env-secret'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'compose-env-secret'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -134,7 +138,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'url-userinfo'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'url-userinfo'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -146,7 +153,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'cli-password-flag'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'cli-password-flag'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -162,7 +172,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'cli-password-flag'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'cli-password-flag'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -174,7 +187,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'credential-constant'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'credential-constant'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 
@@ -207,7 +223,10 @@ describe('secret patterns', () => {
     ];
     for (const s of samples) {
       const hits = matchSecrets(s);
-      expect(hits.some((h) => h.type === 'url-userinfo'), `missed: ${s}`).toBe(true);
+      expect(
+        hits.some((h) => h.type === 'url-userinfo'),
+        `missed: ${s}`,
+      ).toBe(true);
     }
   });
 

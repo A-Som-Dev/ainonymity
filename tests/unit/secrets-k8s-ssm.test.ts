@@ -17,7 +17,8 @@ env:
   });
 
   it('matches AWS SSM Parameter Store paths', () => {
-    const text = 'export PW=$(aws ssm get-parameter --name /prod/acme/app/kafka/sasl/password --with-decryption)';
+    const text =
+      'export PW=$(aws ssm get-parameter --name /prod/acme/app/kafka/sasl/password --with-decryption)';
     const hits = matchSecrets(text);
     expect(hits.some((h) => h.match.includes('/prod/acme/app/kafka/sasl/password'))).toBe(true);
   });
@@ -26,7 +27,10 @@ env:
     const text = 'Secret is stored at https://corp-vault.vault.azure.net/secrets/db-password';
     const hits = matchSecrets(text);
     expect(
-      hits.some((h) => h.match.includes('corp-vault.vault.azure.net') || h.match.includes('secrets/db-password')),
+      hits.some(
+        (h) =>
+          h.match.includes('corp-vault.vault.azure.net') || h.match.includes('secrets/db-password'),
+      ),
     ).toBe(true);
   });
 

@@ -77,9 +77,7 @@ describe('NER name detection', () => {
       const overlap = hits.some((h1, i) =>
         hits.some(
           (h2, j) =>
-            i !== j &&
-            h1.offset < h2.offset + h2.length &&
-            h2.offset < h1.offset + h1.length,
+            i !== j && h1.offset < h2.offset + h2.length && h2.offset < h1.offset + h1.length,
         ),
       );
       expect(overlap).toBe(false);

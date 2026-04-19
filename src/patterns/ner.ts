@@ -1422,13 +1422,67 @@ const LAST_NAMES_ASCII = new Set([...LAST_NAMES].map(asciify));
 // Common lowercase nouns from programming identifiers. Pass 3 rejects pairs
 // where a half sits here. otherwise `max_price` (Max / Price) leaks.
 const PROGRAMMING_NOUNS = new Set([
-  'avg', 'begin', 'body', 'col', 'cost', 'count', 'data', 'date', 'delta',
-  'diff', 'end', 'file', 'first', 'flag', 'form', 'hash', 'head', 'height',
-  'id', 'idx', 'index', 'int', 'item', 'key', 'kind', 'last', 'length',
-  'limit', 'line', 'list', 'max', 'mean', 'min', 'mode', 'name', 'new',
-  'num', 'offset', 'old', 'page', 'path', 'price', 'rate', 'row', 'score',
-  'size', 'start', 'state', 'stats', 'status', 'stop', 'str', 'sum', 'tax',
-  'time', 'total', 'type', 'user', 'val', 'value', 'width',
+  'avg',
+  'begin',
+  'body',
+  'col',
+  'cost',
+  'count',
+  'data',
+  'date',
+  'delta',
+  'diff',
+  'end',
+  'file',
+  'first',
+  'flag',
+  'form',
+  'hash',
+  'head',
+  'height',
+  'id',
+  'idx',
+  'index',
+  'int',
+  'item',
+  'key',
+  'kind',
+  'last',
+  'length',
+  'limit',
+  'line',
+  'list',
+  'max',
+  'mean',
+  'min',
+  'mode',
+  'name',
+  'new',
+  'num',
+  'offset',
+  'old',
+  'page',
+  'path',
+  'price',
+  'rate',
+  'row',
+  'score',
+  'size',
+  'start',
+  'state',
+  'stats',
+  'status',
+  'stop',
+  'str',
+  'sum',
+  'tax',
+  'time',
+  'total',
+  'type',
+  'user',
+  'val',
+  'value',
+  'width',
 ]);
 
 function isCapitalized(word: string): boolean {
@@ -1563,7 +1617,12 @@ export function detectNames(text: string, opts?: DetectOptions): NameMatch[] {
   const raw = detectNamesOn(norm.normalized, opts);
   return raw.map((h) => {
     const m = mapMatchToOriginal(norm, h.offset, h.length);
-    return { ...h, name: text.slice(m.start, m.start + m.length), offset: m.start, length: m.length };
+    return {
+      ...h,
+      name: text.slice(m.start, m.start + m.length),
+      offset: m.start,
+      length: m.length,
+    };
   });
 }
 
@@ -1784,7 +1843,10 @@ function detectNamesOn(text: string, _opts?: DetectOptions): NameMatch[] {
       for (let i = 0; i < parts.length - 1; i++) {
         const rawA = parts[i];
         const rawB = parts[i + 1];
-        if (PROGRAMMING_NOUNS.has(rawA.toLowerCase()) || PROGRAMMING_NOUNS.has(rawB.toLowerCase())) {
+        if (
+          PROGRAMMING_NOUNS.has(rawA.toLowerCase()) ||
+          PROGRAMMING_NOUNS.has(rawB.toLowerCase())
+        ) {
           continue;
         }
         const a = cap(rawA);

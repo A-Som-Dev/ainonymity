@@ -10,8 +10,7 @@ import { log } from '../logger.js';
 
 async function openInBrowser(url: string): Promise<void> {
   const platform = process.platform;
-  const cmd =
-    platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open';
+  const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open';
   const args = platform === 'win32' ? ['/c', 'start', '""', url] : [url];
   const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
   child.unref();

@@ -22,12 +22,32 @@ function makeCtx(lang = 'java'): PipelineContext {
 describe('Public tech-brand whitelist', () => {
   it('treats bare Kafka and friends as framework annotations', () => {
     for (const brand of [
-      'Kafka', 'Spring', 'SpringBoot',
-      'Quarkus', 'Redis', 'Postgres', 'Postgresql', 'Oracle',
-      'MongoDB', 'RabbitMQ', 'Elasticsearch', 'Docker', 'Kubernetes',
-      'Helm', 'Maven', 'Gradle', 'Jackson', 'Hibernate',
-      'Jenkins', 'GitLab', 'GitHub', 'Jira', 'Confluence',
-      'Terraform', 'Ansible', 'Vault',
+      'Kafka',
+      'Spring',
+      'SpringBoot',
+      'Quarkus',
+      'Redis',
+      'Postgres',
+      'Postgresql',
+      'Oracle',
+      'MongoDB',
+      'RabbitMQ',
+      'Elasticsearch',
+      'Docker',
+      'Kubernetes',
+      'Helm',
+      'Maven',
+      'Gradle',
+      'Jackson',
+      'Hibernate',
+      'Jenkins',
+      'GitLab',
+      'GitHub',
+      'Jira',
+      'Confluence',
+      'Terraform',
+      'Ansible',
+      'Vault',
     ]) {
       expect(isFrameworkAnnotation(brand)).toBe(true);
     }

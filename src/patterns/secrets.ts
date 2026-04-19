@@ -108,7 +108,8 @@ export const SECRET_PATTERNS: PatternRule[] = [
     // matching username leaks the service-account name, so eat the whole
     // LoginModule statement as a unit.
     type: 'sasl-jaas',
-    regex: /\b(?:[A-Za-z]+\.)*[A-Za-z]*LoginModule\s+(?:required|optional|sufficient|requisite)\b[\s\S]*?;/g,
+    regex:
+      /\b(?:[A-Za-z]+\.)*[A-Za-z]*LoginModule\s+(?:required|optional|sufficient|requisite)\b[\s\S]*?;/g,
   },
   {
     // Kubernetes secretKeyRef leaks the Secret object name.
@@ -136,7 +137,8 @@ export const SECRET_PATTERNS: PatternRule[] = [
     // Keystore, key and certificate paths. Anchored on a `/` prefix so plain
     // filenames in prose don't trip.
     type: 'sensitive-cert-path',
-    regex: /\/(?:[A-Za-z0-9._-]+\/){1,8}[A-Za-z0-9._-]+\.(?:jks|pem|key|p12|pfx|crt|keystore|truststore)\b/g,
+    regex:
+      /\/(?:[A-Za-z0-9._-]+\/){1,8}[A-Za-z0-9._-]+\.(?:jks|pem|key|p12|pfx|crt|keystore|truststore)\b/g,
   },
   {
     type: 'github-fine-grained',
@@ -184,8 +186,7 @@ export const SECRET_PATTERNS: PatternRule[] = [
     // Scheme up to 64 chars for enterprise custom URIs (`jdbc-oracle-thin-…`).
     // `#` excluded from tail so fragments don't get swallowed into the secret.
     type: 'url-userinfo',
-    regex:
-      /\b[a-z][a-z0-9+\-.]{1,63}:\/\/[^\s:/@]{0,128}:[^\s@/]{3,128}@[^\s"',;<>)\]#]{1,512}/gi,
+    regex: /\b[a-z][a-z0-9+\-.]{1,63}:\/\/[^\s:/@]{0,128}:[^\s@/]{3,128}@[^\s"',;<>)\]#]{1,512}/gi,
   },
   {
     // `--requirepass x`, `--password=x`, POSIX short form after a known CLI

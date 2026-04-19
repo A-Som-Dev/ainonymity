@@ -19,10 +19,7 @@ describe('Auto-detect includes the full kebab-case repo slug as domain term', ()
     const slug = 'acme-line-mgmt-kafka';
     const repoDir = join(dir, slug);
     mkdirSync(repoDir);
-    writeFileSync(
-      join(repoDir, 'pom.xml'),
-      '<project><artifactId>foo</artifactId></project>',
-    );
+    writeFileSync(join(repoDir, 'pom.xml'), '<project><artifactId>foo</artifactId></project>');
     const config = autoDetect(repoDir);
     expect(config.code.domainTerms).toContain(slug);
   });

@@ -16,7 +16,10 @@ describe('Sensitive filesystem path patterns', () => {
       '/opt/certs/bundle.p12',
     ]) {
       const hits = matchSecrets(`load ${path}`);
-      expect(hits.some((h) => h.match.includes(path)), `should match ${path}`).toBe(true);
+      expect(
+        hits.some((h) => h.match.includes(path)),
+        `should match ${path}`,
+      ).toBe(true);
     }
   });
 

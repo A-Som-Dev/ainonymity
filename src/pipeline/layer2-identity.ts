@@ -58,7 +58,8 @@ export class IdentityLayer implements Layer {
     // session-map key and blocking cascade rehydration.
     type Entry = { value: string; kind: 'company' | 'domain' | 'person'; variants: string[] };
     const entries: Entry[] = [];
-    if (identity.company) entries.push({ value: identity.company, kind: 'company', variants: [identity.company] });
+    if (identity.company)
+      entries.push({ value: identity.company, kind: 'company', variants: [identity.company] });
     for (const d of identity.domains) entries.push({ value: d, kind: 'domain', variants: [d] });
     for (const p of identity.people) {
       const tokens = p.trim().split(/\s+/);

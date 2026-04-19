@@ -128,11 +128,7 @@ export class AuditLogger {
     // Sidecar checkpoint. verifyAuditChain uses it to detect tail-truncation:
     // the hash chain alone stays internally consistent after any suffix is cut.
     const ckpt = filepath + '.checkpoint';
-    writeFileSync(
-      ckpt,
-      JSON.stringify({ lastSeq: entry.seq, lastHash: this.lastHash }),
-      'utf-8',
-    );
+    writeFileSync(ckpt, JSON.stringify({ lastSeq: entry.seq, lastHash: this.lastHash }), 'utf-8');
   }
 
   private currentFile(): string {
