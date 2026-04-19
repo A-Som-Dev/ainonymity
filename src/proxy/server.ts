@@ -175,7 +175,9 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
   }
 
   const server = http.createServer(async (req, res) => {
-    const path = req.url ?? '/';
+    const rawUrl = req.url ?? '/';
+    const qIdx = rawUrl.indexOf('?');
+    const path = qIdx >= 0 ? rawUrl.slice(0, qIdx) : rawUrl;
 
     if (PROTECTED_MGMT_PATHS.has(path)) {
       if (!requireMgmtAuth(req, res, mgmtToken, path)) return;
@@ -232,7 +234,7 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
     }
 
     if (path === '/dashboard') {
-      serveDashboard(res);
+      serveDashboard(res, extractBearerToken(req) ?? undefined);
       return;
     }
 
@@ -252,7 +254,7 @@ export function createProxyServer(opts: ProxyServerOptions): ProxyServer {
     }
 
     if (path.startsWith('/shutdown')) {
-      const url = new URL(path, 'http://localhost');
+      const url = new URL(rawUrl, 'http://localhost');
       const provided = url.searchParams.get('token') ?? '';
       if (!timingSafeStringEqual(provided, shutdownToken)) {
         res.writeHead(403, { 'content-type': 'application/json' });

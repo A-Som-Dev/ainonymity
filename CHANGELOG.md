@@ -2,9 +2,14 @@
 
 All notable changes to AInonymous are documented here. The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is [SemVer](https://semver.org/).
 
-## [1.2.0] - 2026-04-16
+## [1.2.0] - 2026-04-19
 
 Usability and real-world hardening after running the v1.1.3 scanner against nine internal repositories (Java/Spring, Kafka Connect, Python/FastAPI, React, Keycloak/MariaDB infra). The default is now optimized for LLM-readable output while keeping Layers 1+2 strict on secrets and PII.
+
+### Fixed
+
+- Dashboard URL with `?token=` query parameter now works. Previously the server matched `req.url` including the query string against `/dashboard`, so the URL the CLI prints at startup returned `{"error":"not_found"}`. Path and query are now separated before any route matching. `/shutdown?token=` is unchanged externally but the handler now reads the token from the raw URL instead of the stripped path.
+- Dashboard subresource loading. `index.html` references `/dashboard/app.js` and `/dashboard/app.css` without a token, but both paths require mgmt auth. The dashboard HTML is now served with the current session's token injected into both subresource URLs, so browser navigation with `?token=` works end-to-end.
 
 ### Added
 

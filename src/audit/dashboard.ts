@@ -45,8 +45,14 @@ function sendEvent(res: SSEClient, event: string, data: unknown): void {
   }
 }
 
-export function serveDashboard(res: ServerResponse): void {
-  const html = readAsset('index.html');
+export function serveDashboard(res: ServerResponse, token?: string): void {
+  let html = readAsset('index.html');
+  if (token) {
+    const safe = encodeURIComponent(token);
+    html = html
+      .replace('/dashboard/app.css', `/dashboard/app.css?token=${safe}`)
+      .replace('/dashboard/app.js', `/dashboard/app.js?token=${safe}`);
+  }
   res.writeHead(200, {
     'content-type': 'text/html; charset=utf-8',
     'cache-control': 'no-cache',

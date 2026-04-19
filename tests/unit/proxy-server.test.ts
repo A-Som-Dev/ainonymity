@@ -347,6 +347,18 @@ describe('management endpoint auth', () => {
     expect(res.headers.get('content-type')).toContain('text/html');
   });
 
+  it('accepts query-string token on /dashboard and injects it into subresource URLs', async () => {
+    const config = getDefaults();
+    server = createProxyServer({ config, mgmtToken: TOKEN });
+    const port = await listenOnRandomPort(server);
+
+    const res = await fetch(`http://127.0.0.1:${port}/dashboard?token=${TOKEN}`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain(`/dashboard/app.css?token=${encodeURIComponent(TOKEN)}`);
+    expect(html).toContain(`/dashboard/app.js?token=${encodeURIComponent(TOKEN)}`);
+  });
+
   it('protects /dashboard/app.js and /dashboard/app.css', async () => {
     const config = getDefaults();
     server = createProxyServer({ config, mgmtToken: TOKEN });
