@@ -15,6 +15,8 @@ interface BlockBuf {
  *  any pseudonym in the session map, then rehydrate only the prefix that can
  *  no longer be a split token. On block/stream end the tail is flushed.
  */
+const MAX_LEFTOVER_BYTES = 1 * 1024 * 1024;
+
 export class StreamRehydrator {
   private readonly format: StreamFormat;
   private readonly rehydrate: RehydrateFn;
@@ -46,6 +48,15 @@ export class StreamRehydrator {
       const raw = this.leftover.slice(0, idx + 2);
       this.leftover = this.leftover.slice(idx + 2);
       out += this.handleEvent(raw);
+    }
+
+    if (this.leftover.length > MAX_LEFTOVER_BYTES) {
+      log.warn('stream-rehydrator leftover buffer exceeded cap, flushing raw', {
+        length: this.leftover.length,
+        cap: MAX_LEFTOVER_BYTES,
+      });
+      out += this.leftover;
+      this.leftover = '';
     }
 
     return out;

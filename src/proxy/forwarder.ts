@@ -164,6 +164,14 @@ export function forwardWithRehydration(
     clientRes.end(JSON.stringify({ error: 'upstream_error' }));
   });
 
+  if (typeof clientRes.on === 'function') {
+    clientRes.on('close', () => {
+      if (!proxyReq.destroyed) {
+        proxyReq.destroy();
+      }
+    });
+  }
+
   if (opts.body) {
     proxyReq.write(opts.body);
   }
